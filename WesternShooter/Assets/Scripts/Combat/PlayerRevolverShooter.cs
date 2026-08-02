@@ -1,0 +1,113 @@
+using UnityEngine;
+
+public class PlayerRevolverShooter : MonoBehaviour
+{
+    [Header("References")]
+    [SerializeField] private PlayerMovementStateMachine playerMovement;
+    [SerializeField] private Transform muzzlePoint;
+    [SerializeField] private BulletProjectile bulletPrefab;
+    [SerializeField] private AudioSource shotAudioSource;
+
+    [Header("Firing")]
+    [SerializeField] private float fireCooldown = 0.2f;
+    [SerializeField] private float aimRayDistance = 250f;
+    [SerializeField] private LayerMask aimLayers = ~0;
+
+    private Camera mainCamera;
+    private float nextFireTime;
+    private Collider[] ownerColliders;
+
+    private void Awake()
+    {
+        if (playerMovement == null)
+        {
+            playerMovement = GetComponent<PlayerMovementStateMachine>();
+        }
+
+        mainCamera = Camera.main;
+        ownerColliders = GetComponentsInChildren<Collider>();
+    }
+
+    private void Update()
+    {
+        if (playerMovement == null || muzzlePoint == null || bulletPrefab == null)
+        {
+            return;
+        }
+
+        if (!playerMovement.IsAimPressed)
+        {
+            return;
+        }
+
+        if (!playerMovement.IsShootPressedThisFrame)
+        {
+            return;
+        }
+
+        if (Time.time < nextFireTime)
+        {
+            return;
+        }
+
+        nextFireTime = Time.time + fireCooldown;
+
+        Vector3 shootDirection = GetShootDirection();
+        BulletProjectile spawnedBullet = Instantiate(bulletPrefab, muzzlePoint.position, Quaternion.LookRotation(shootDirection));
+        spawnedBullet.SetOwner(transform);
+        spawnedBullet.IgnoreCollisionsWith(ownerColliders);
+        spawnedBullet.Launch(shootDirection);
+        PlayShotAudioSource();
+    }
+
+    private Vector3 GetShootDirection()
+    {
+        Vector3 targetPoint = GetAimTargetPoint();
+        Vector3 direction = (targetPoint - muzzlePoint.position).normalized;
+        if (direction.sqrMagnitude <= 0.0001f)
+        {
+            direction = muzzlePoint.forward;
+        }
+
+        return direction;
+    }
+
+    private Vector3 GetAimTargetPoint()
+    {
+        if (mainCamera == null)
+        {
+            mainCamera = Camera.main;
+        }
+
+        if (mainCamera == null)
+        {
+            return muzzlePoint.position + (muzzlePoint.forward * aimRayDistance);
+        }
+
+        Ray cameraRay = mainCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
+        Vector3 targetPoint = cameraRay.origin + cameraRay.direction * aimRayDistance;
+
+        if (Physics.Raycast(cameraRay, out RaycastHit hit, aimRayDistance, aimLayers, QueryTriggerInteraction.Ignore))
+        {
+            targetPoint = hit.point;
+        }
+
+        return targetPoint;
+    }
+
+    private void PlayShotAudioSource()
+    {
+        if (shotAudioSource == null || shotAudioSource.clip == null)
+        {
+            return;
+        }
+
+        if (shotAudioSource.isPlaying)
+        {
+            shotAudioSource.Stop();
+        }
+
+        shotAudioSource.Play();
+    }
+
+}
