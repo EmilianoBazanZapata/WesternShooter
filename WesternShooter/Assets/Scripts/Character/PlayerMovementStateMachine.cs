@@ -45,10 +45,11 @@ public class PlayerMovementStateMachine : MonoBehaviour, IDamageable
     private CharacterController characterController;
     private IPlayerMovementState currentState;
     private float verticalVelocity;
-    private float currentHealth;
+    private PlayerHealthModel playerHealth;
     private float nextStepTime;
     private AudioSource footstepSource;
     private int lastFootstepClipIndex = -1;
+    private bool deathEffectsApplied;
 
     public PlayerIdleState IdleState { get; } = new PlayerIdleState();
     public PlayerWalkState WalkState { get; } = new PlayerWalkState();
@@ -56,8 +57,8 @@ public class PlayerMovementStateMachine : MonoBehaviour, IDamageable
 
     public float WalkSpeed => walkSpeed;
     public float RunSpeed => runSpeed;
-    public float MaxHealth => maxHealth;
-    public float CurrentHealth => currentHealth;
+    public float MaxHealth => playerHealth != null ? playerHealth.MaxHealth : maxHealth;
+    public float CurrentHealth => playerHealth != null ? playerHealth.CurrentHealth : maxHealth;
 
     public Vector2 MoveInput { get; private set; }
     public bool IsMovePressed => MoveInput.sqrMagnitude > 0.01f;
@@ -65,14 +66,15 @@ public class PlayerMovementStateMachine : MonoBehaviour, IDamageable
     public bool IsAimPressed { get; private set; }
     public bool IsShootPressed { get; private set; }
     public bool IsShootPressedThisFrame { get; private set; }
-    public bool IsDead { get; private set; }
+    public bool IsDead => playerHealth != null && playerHealth.IsDead;
 
     private bool wasShootPressedLastFrame;
 
     private void Awake()
     {
         characterController = GetComponent<CharacterController>();
-        currentHealth = maxHealth;
+        playerHealth = new PlayerHealthModel(maxHealth);
+        playerHealth.Died += OnPlayerDied;
         footstepSource = CreateOrGetAudioSource("FootstepAudioSource");
 
         if (cameraTransform == null && Camera.main != null)
@@ -83,6 +85,14 @@ public class PlayerMovementStateMachine : MonoBehaviour, IDamageable
         if (characterAnimator == null)
         {
             characterAnimator = GetComponentInChildren<Animator>();
+        }
+    }
+
+    private void OnDestroy()
+    {
+        if (playerHealth != null)
+        {
+            playerHealth.Died -= OnPlayerDied;
         }
     }
 
@@ -334,7 +344,7 @@ public class PlayerMovementStateMachine : MonoBehaviour, IDamageable
 
         if (Keyboard.current != null && Keyboard.current.fKey.wasPressedThisFrame)
         {
-            TriggerDeath();
+            playerHealth.MarkDead();
         }
     }
 
@@ -345,23 +355,17 @@ public class PlayerMovementStateMachine : MonoBehaviour, IDamageable
             return;
         }
 
-        currentHealth -= damageAmount;
-
-        if (currentHealth <= 0f)
-        {
-            currentHealth = 0f;
-            TriggerDeath();
-        }
+        playerHealth.ApplyDamage(damageAmount);
     }
 
-    private void TriggerDeath()
+    private void OnPlayerDied()
     {
-        if (IsDead)
+        if (deathEffectsApplied)
         {
             return;
         }
 
-        IsDead = true;
+        deathEffectsApplied = true;
 
         if (characterAnimator != null)
         {
