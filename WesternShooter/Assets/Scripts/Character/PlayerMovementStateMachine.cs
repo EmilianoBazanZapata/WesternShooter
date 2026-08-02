@@ -44,6 +44,7 @@ public class PlayerMovementStateMachine : MonoBehaviour, IDamageable
 
     private CharacterController characterController;
     private IPlayerMovementState currentState;
+    private PlayerInputReader playerInputReader;
     private float verticalVelocity;
     private PlayerHealthModel playerHealth;
     private float nextStepTime;
@@ -68,11 +69,11 @@ public class PlayerMovementStateMachine : MonoBehaviour, IDamageable
     public bool IsShootPressedThisFrame { get; private set; }
     public bool IsDead => playerHealth != null && playerHealth.IsDead;
 
-    private bool wasShootPressedLastFrame;
-
     private void Awake()
     {
         characterController = GetComponent<CharacterController>();
+        playerInputReader = GetComponent<PlayerInputReader>();
+
         playerHealth = new PlayerHealthModel(maxHealth);
         playerHealth.Died += OnPlayerDied;
         footstepSource = CreateOrGetAudioSource("FootstepAudioSource");
@@ -286,53 +287,22 @@ public class PlayerMovementStateMachine : MonoBehaviour, IDamageable
 
     private void ReadInput()
     {
-        Vector2 keyboardInput = Vector2.zero;
-        Vector2 gamepadInput = Vector2.zero;
-        bool mouseAimPressed = false;
-        bool mouseShootPressed = false;
-        bool gamepadAimPressed = false;
-        bool gamepadShootPressed = false;
-
-        if (Keyboard.current != null)
-        {
-            float x = (Keyboard.current.dKey.isPressed ? 1f : 0f) - (Keyboard.current.aKey.isPressed ? 1f : 0f);
-            float y = (Keyboard.current.wKey.isPressed ? 1f : 0f) - (Keyboard.current.sKey.isPressed ? 1f : 0f);
-            keyboardInput = new Vector2(x, y);
-
-            IsRunPressed = Keyboard.current.leftShiftKey.isPressed || Keyboard.current.rightShiftKey.isPressed;
-        }
-        else
-        {
-            IsRunPressed = false;
-        }
-
-        if (Gamepad.current != null)
-        {
-            gamepadInput = Gamepad.current.leftStick.ReadValue();
-            IsRunPressed = IsRunPressed || Gamepad.current.leftStickButton.isPressed;
-            gamepadAimPressed = Gamepad.current.leftTrigger.ReadValue() > 0.2f;
-            gamepadShootPressed = Gamepad.current.rightTrigger.ReadValue() > 0.2f;
-        }
-
-        if (Mouse.current != null)
-        {
-            mouseAimPressed = Mouse.current.rightButton.isPressed;
-            mouseShootPressed = Mouse.current.leftButton.isPressed;
-        }
-
-        IsAimPressed = mouseAimPressed || gamepadAimPressed;
-        IsShootPressed = (mouseAimPressed && mouseShootPressed) || (gamepadAimPressed && gamepadShootPressed);
-        IsShootPressedThisFrame = IsShootPressed && !wasShootPressedLastFrame;
-        wasShootPressedLastFrame = IsShootPressed;
-
-        if (IsAimPressed)
+        if (playerInputReader == null)
         {
             MoveInput = Vector2.zero;
             IsRunPressed = false;
+            IsAimPressed = false;
+            IsShootPressed = false;
+            IsShootPressedThisFrame = false;
             return;
         }
 
-        MoveInput = Vector2.ClampMagnitude(keyboardInput + gamepadInput, 1f);
+        playerInputReader.Poll();
+        MoveInput = playerInputReader.MoveInput;
+        IsRunPressed = playerInputReader.IsRunPressed;
+        IsAimPressed = playerInputReader.IsAimPressed;
+        IsShootPressed = playerInputReader.IsShootPressed;
+        IsShootPressedThisFrame = playerInputReader.IsShootPressedThisFrame;
     }
 
     private void HandleDeathInput()
