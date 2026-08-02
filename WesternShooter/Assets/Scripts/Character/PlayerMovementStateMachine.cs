@@ -37,14 +37,12 @@ public class PlayerMovementStateMachine : MonoBehaviour, IDamageable
 
     private PlayerMotor playerMotor;
     private PlayerAnimationController playerAnimationController;
+    private PlayerFootstepAudio playerFootstepAudio;
     private IPlayerMovementState currentState;
     private PlayerInputReader playerInputReader;
     private Transform lastConfiguredCameraTransform;
     private Animator lastConfiguredAnimator;
     private PlayerHealthModel playerHealth;
-    private float nextStepTime;
-    private AudioSource footstepSource;
-    private int lastFootstepClipIndex = -1;
     private bool deathEffectsApplied;
 
     public PlayerIdleState IdleState { get; } = new PlayerIdleState();
@@ -68,11 +66,11 @@ public class PlayerMovementStateMachine : MonoBehaviour, IDamageable
     {
         playerMotor = GetComponent<PlayerMotor>();
         playerAnimationController = GetComponent<PlayerAnimationController>();
+        playerFootstepAudio = GetComponent<PlayerFootstepAudio>();
         playerInputReader = GetComponent<PlayerInputReader>();
 
         playerHealth = new PlayerHealthModel(maxHealth);
         playerHealth.Died += OnPlayerDied;
-        footstepSource = CreateOrGetAudioSource("FootstepAudioSource");
 
         if (cameraTransform == null && Camera.main != null)
         {
@@ -86,6 +84,7 @@ public class PlayerMovementStateMachine : MonoBehaviour, IDamageable
 
         ConfigureMotor();
         ConfigureAnimationController();
+        ConfigureFootstepAudio();
     }
 
     private void OnDestroy()
@@ -117,8 +116,8 @@ public class PlayerMovementStateMachine : MonoBehaviour, IDamageable
 
             SwitchState(IdleState);
             ApplyGravity(Time.deltaTime);
+            HandleFootsteps();
             UpdateAnimatorParameters();
-            nextStepTime = 0f;
             return;
         }
 
@@ -129,8 +128,8 @@ public class PlayerMovementStateMachine : MonoBehaviour, IDamageable
             SwitchState(IdleState);
             ApplyGravity(Time.deltaTime);
             RotateWhileAiming(Time.deltaTime);
+            HandleFootsteps();
             UpdateAnimatorParameters();
-            nextStepTime = 0f;
             return;
         }
 
@@ -141,106 +140,13 @@ public class PlayerMovementStateMachine : MonoBehaviour, IDamageable
 
     private void HandleFootsteps()
     {
-        if (footstepSource == null)
+        if (playerFootstepAudio == null)
         {
             return;
         }
 
-        bool isMovingOnGround = playerMotor != null && playerMotor.IsGrounded && IsMovePressed;
-        if (!isMovingOnGround)
-        {
-            nextStepTime = 0f;
-            return;
-        }
-
-        if (Time.time < nextStepTime)
-        {
-            return;
-        }
-
-        AudioClip stepClip = GetRandomFootstepClip();
-        if (stepClip == null)
-        {
-            return;
-        }
-
-        footstepSource.pitch = Random.Range(footstepPitchRange.x, footstepPitchRange.y);
-        footstepSource.PlayOneShot(stepClip, footstepVolume);
-
-        float interval = IsRunPressed ? runStepInterval : walkStepInterval;
-        nextStepTime = Time.time + Mathf.Max(0.05f, interval);
-    }
-
-    private AudioClip GetRandomFootstepClip()
-    {
-        AudioClip[] source = GetFootstepSourcePool();
-
-        if (source == null || source.Length == 0)
-        {
-            return null;
-        }
-
-        int index;
-        if (source.Length == 1)
-        {
-            index = 0;
-        }
-        else
-        {
-            index = Random.Range(0, source.Length);
-            if (index == lastFootstepClipIndex)
-            {
-                index = (index + 1) % source.Length;
-            }
-        }
-
-        lastFootstepClipIndex = index;
-        return source[index];
-    }
-
-    private AudioClip[] GetFootstepSourcePool()
-    {
-        if (footstepClips != null && footstepClips.Length > 0)
-        {
-            return footstepClips;
-        }
-
-        if (IsRunPressed && runFootstepClips != null && runFootstepClips.Length > 0)
-        {
-            return runFootstepClips;
-        }
-
-        return walkFootstepClips;
-    }
-
-    private AudioSource CreateOrGetAudioSource(string childName)
-    {
-        Transform child = transform.Find(childName);
-        if (child == null)
-        {
-            GameObject childObject = new GameObject(childName);
-            childObject.transform.SetParent(transform);
-            childObject.transform.localPosition = Vector3.zero;
-            childObject.transform.localRotation = Quaternion.identity;
-            childObject.transform.localScale = Vector3.one;
-            child = childObject.transform;
-        }
-
-        AudioSource source = child.GetComponent<AudioSource>();
-        if (source == null)
-        {
-            source = child.gameObject.AddComponent<AudioSource>();
-        }
-
-        source.playOnAwake = false;
-        source.loop = false;
-        source.spatialBlend = 1f;
-        source.dopplerLevel = 0f;
-        source.rolloffMode = AudioRolloffMode.Logarithmic;
-        source.minDistance = 1.5f;
-        source.maxDistance = 18f;
-        source.outputAudioMixerGroup = sfxOutputGroup;
-        return source;
+        bool isGrounded = playerMotor != null && playerMotor.IsGrounded;
+        playerFootstepAudio.Tick(isGrounded, IsMovePressed, IsRunPressed, IsAimPressed, IsDead, Time.time);
     }
 
     public void SwitchState(IPlayerMovementState newState)
@@ -416,5 +322,24 @@ public class PlayerMovementStateMachine : MonoBehaviour, IDamageable
 
         playerAnimationController.Configure(characterAnimator);
         lastConfiguredAnimator = characterAnimator;
+    }
+
+    private void ConfigureFootstepAudio()
+    {
+        if (playerFootstepAudio == null)
+        {
+            Debug.LogError("[PlayerMovementStateMachine] Missing PlayerFootstepAudio component on player root.", this);
+            return;
+        }
+
+        playerFootstepAudio.Configure(
+            footstepClips,
+            walkFootstepClips,
+            runFootstepClips,
+            walkStepInterval,
+            runStepInterval,
+            footstepPitchRange,
+            footstepVolume,
+            sfxOutputGroup);
     }
 }
