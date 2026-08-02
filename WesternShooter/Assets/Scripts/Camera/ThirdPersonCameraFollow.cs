@@ -70,6 +70,8 @@ public class ThirdPersonCameraFollow : MonoBehaviour
     private float fieldOfViewVelocity;
     private bool useLeftShoulder;
     private bool lastGamepadShoulderSwapPressed;
+    private PlayerInputReader playerInputReader;
+    private bool hasWarnedMissingInputReader;
 
     private void Start()
     {
@@ -79,6 +81,8 @@ public class ThirdPersonCameraFollow : MonoBehaviour
             enabled = false;
             return;
         }
+
+        ResolvePlayerInputReaderFromTarget();
 
         Vector3 euler = transform.eulerAngles;
         yaw = euler.y;
@@ -104,6 +108,13 @@ public class ThirdPersonCameraFollow : MonoBehaviour
 
     private void LateUpdate()
     {
+        if (playerInputReader == null && target != null)
+        {
+            ResolvePlayerInputReaderFromTarget();
+        }
+
+        playerInputReader?.EnsurePolledThisFrame();
+
         HandleShoulderSwapInput();
 
         bool isAiming = IsAiming();
@@ -144,23 +155,13 @@ public class ThirdPersonCameraFollow : MonoBehaviour
     public void SetTarget(Transform newTarget)
     {
         target = newTarget;
+        hasWarnedMissingInputReader = false;
+        ResolvePlayerInputReaderFromTarget();
     }
 
     private Vector2 GetLookInput()
     {
-        Vector2 lookInput = Vector2.zero;
-
-        if (Mouse.current != null)
-        {
-            lookInput += Mouse.current.delta.ReadValue();
-        }
-
-        if (Gamepad.current != null)
-        {
-            lookInput += Gamepad.current.rightStick.ReadValue() * 15f;
-        }
-
-        return lookInput;
+        return playerInputReader != null ? playerInputReader.LookInput : Vector2.zero;
     }
 
     private void HandleShoulderSwapInput()
@@ -234,10 +235,32 @@ public class ThirdPersonCameraFollow : MonoBehaviour
         return desiredPosition;
     }
 
-    private static bool IsAiming()
+    private bool IsAiming()
     {
-        bool mouseAim = Mouse.current != null && Mouse.current.rightButton.isPressed;
-        bool gamepadAim = Gamepad.current != null && Gamepad.current.leftTrigger.ReadValue() > 0.2f;
-        return mouseAim || gamepadAim;
+        return playerInputReader != null && playerInputReader.IsAimPressed;
+    }
+
+    private void ResolvePlayerInputReaderFromTarget()
+    {
+        playerInputReader = null;
+
+        if (target == null)
+        {
+            return;
+        }
+
+        playerInputReader = target.GetComponentInParent<PlayerInputReader>();
+        if (playerInputReader != null)
+        {
+            return;
+        }
+
+        if (hasWarnedMissingInputReader)
+        {
+            return;
+        }
+
+        hasWarnedMissingInputReader = true;
+        Debug.LogWarning("ThirdPersonCameraFollow: target hierarchy has no PlayerInputReader; look and aim input will be disabled.", this);
     }
 }

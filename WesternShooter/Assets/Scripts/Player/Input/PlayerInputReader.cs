@@ -4,17 +4,27 @@ using UnityEngine.InputSystem;
 public class PlayerInputReader : MonoBehaviour
 {
     public Vector2 MoveInput { get; private set; }
+    public Vector2 LookInput { get; private set; }
     public bool IsRunPressed { get; private set; }
     public bool IsAimPressed { get; private set; }
     public bool IsShootPressed { get; private set; }
     public bool IsShootPressedThisFrame { get; private set; }
 
     private bool wasShootPressedLastFrame;
+    private int lastPolledFrame = int.MinValue;
 
-    public void Poll()
+    public void EnsurePolledThisFrame()
     {
+        if (lastPolledFrame == Time.frameCount)
+        {
+            return;
+        }
+
+        lastPolledFrame = Time.frameCount;
+
         Vector2 keyboardInput = Vector2.zero;
         Vector2 gamepadInput = Vector2.zero;
+        Vector2 lookInput = Vector2.zero;
         bool mouseAimPressed = false;
         bool mouseShootPressed = false;
         bool gamepadAimPressed = false;
@@ -36,6 +46,7 @@ public class PlayerInputReader : MonoBehaviour
         if (Gamepad.current != null)
         {
             gamepadInput = Gamepad.current.leftStick.ReadValue();
+            lookInput += Gamepad.current.rightStick.ReadValue() * 15f;
             IsRunPressed = IsRunPressed || Gamepad.current.leftStickButton.isPressed;
             gamepadAimPressed = Gamepad.current.leftTrigger.ReadValue() > 0.2f;
             gamepadShootPressed = Gamepad.current.rightTrigger.ReadValue() > 0.2f;
@@ -43,9 +54,12 @@ public class PlayerInputReader : MonoBehaviour
 
         if (Mouse.current != null)
         {
+            lookInput += Mouse.current.delta.ReadValue();
             mouseAimPressed = Mouse.current.rightButton.isPressed;
             mouseShootPressed = Mouse.current.leftButton.isPressed;
         }
+
+        LookInput = lookInput;
 
         IsAimPressed = mouseAimPressed || gamepadAimPressed;
         IsShootPressed = (mouseAimPressed && mouseShootPressed) || (gamepadAimPressed && gamepadShootPressed);

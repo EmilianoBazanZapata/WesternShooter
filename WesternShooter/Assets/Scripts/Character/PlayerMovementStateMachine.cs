@@ -297,7 +297,7 @@ public class PlayerMovementStateMachine : MonoBehaviour, IDamageable
             return;
         }
 
-        playerInputReader.Poll();
+        playerInputReader.EnsurePolledThisFrame();
         MoveInput = playerInputReader.MoveInput;
         IsRunPressed = playerInputReader.IsRunPressed;
         IsAimPressed = playerInputReader.IsAimPressed;
