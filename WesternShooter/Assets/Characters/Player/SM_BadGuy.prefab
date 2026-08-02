@@ -1589,6 +1589,7 @@ GameObject:
   - component: {fileID: 2078459111204411344}
   - component: {fileID: 3706073470671210101}
   - component: {fileID: 7123456789012345678}
+  - component: {fileID: 7432109876543210123}
   - component: {fileID: 5912345678901234567}
   m_Layer: 0
   m_Name: SM_BadGuy
@@ -1693,6 +1694,18 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a3fbcb7d62544f3895de2d85ef0fd706, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!114 &7432109876543210123
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8846347877108649281}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3f4b8bfccd03414f8f5a1a95ca64e7d6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
 --- !u!114 &5912345678901234567

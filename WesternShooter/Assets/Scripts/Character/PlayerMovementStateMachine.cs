@@ -5,13 +5,6 @@ using UnityEngine.Audio;
 [RequireComponent(typeof(CharacterController))]
 public class PlayerMovementStateMachine : MonoBehaviour, IDamageable
 {
-    private static readonly int IsWalkingHash = Animator.StringToHash("IsWalking");
-    private static readonly int IsRunningHash = Animator.StringToHash("IsRunning");
-    private static readonly int IsAimingHash = Animator.StringToHash("IsAiming");
-    private static readonly int IsShootingHash = Animator.StringToHash("IsShooting");
-    private static readonly int IsDeadHash = Animator.StringToHash("IsDead");
-    private static readonly int DieTriggerHash = Animator.StringToHash("DieTrigger");
-
     [Header("Movement")]
     [SerializeField] private float walkSpeed = 2.5f;
     [SerializeField] private float runSpeed = 5.5f;
@@ -43,9 +36,11 @@ public class PlayerMovementStateMachine : MonoBehaviour, IDamageable
     [SerializeField] private AudioMixerGroup sfxOutputGroup;
 
     private PlayerMotor playerMotor;
+    private PlayerAnimationController playerAnimationController;
     private IPlayerMovementState currentState;
     private PlayerInputReader playerInputReader;
     private Transform lastConfiguredCameraTransform;
+    private Animator lastConfiguredAnimator;
     private PlayerHealthModel playerHealth;
     private float nextStepTime;
     private AudioSource footstepSource;
@@ -72,6 +67,7 @@ public class PlayerMovementStateMachine : MonoBehaviour, IDamageable
     private void Awake()
     {
         playerMotor = GetComponent<PlayerMotor>();
+        playerAnimationController = GetComponent<PlayerAnimationController>();
         playerInputReader = GetComponent<PlayerInputReader>();
 
         playerHealth = new PlayerHealthModel(maxHealth);
@@ -89,6 +85,7 @@ public class PlayerMovementStateMachine : MonoBehaviour, IDamageable
         }
 
         ConfigureMotor();
+        ConfigureAnimationController();
     }
 
     private void OnDestroy()
@@ -107,6 +104,7 @@ public class PlayerMovementStateMachine : MonoBehaviour, IDamageable
     private void Update()
     {
         SyncMotorCameraTransform();
+        SyncAnimationControllerAnimator();
         HandleDeathInput();
 
         if (IsDead)
@@ -329,10 +327,7 @@ public class PlayerMovementStateMachine : MonoBehaviour, IDamageable
 
         deathEffectsApplied = true;
 
-        if (characterAnimator != null)
-        {
-            characterAnimator.SetTrigger(DieTriggerHash);
-        }
+        playerAnimationController?.PlayDeath();
 
         GameAudioManager manager = GameAudioManager.Instance
             ?? FindFirstObjectByType<GameAudioManager>();
@@ -349,21 +344,12 @@ public class PlayerMovementStateMachine : MonoBehaviour, IDamageable
 
     private void UpdateAnimatorParameters()
     {
-        if (characterAnimator == null)
+        if (playerAnimationController == null)
         {
             return;
         }
 
-        bool isWalking = !IsDead && IsMovePressed && !IsRunPressed && !IsAimPressed;
-        bool isRunning = !IsDead && IsMovePressed && IsRunPressed && !IsAimPressed;
-        bool isAiming = !IsDead && IsAimPressed;
-        bool isShooting = !IsDead && (IsAimPressed || IsShootPressed);
-
-        characterAnimator.SetBool(IsWalkingHash, isWalking);
-        characterAnimator.SetBool(IsRunningHash, isRunning);
-        characterAnimator.SetBool(IsAimingHash, isAiming);
-        characterAnimator.SetBool(IsShootingHash, isShooting);
-        characterAnimator.SetBool(IsDeadHash, IsDead);
+        playerAnimationController.SyncGameplayAnimationState(IsDead, IsMovePressed, IsRunPressed, IsAimPressed, IsShootPressed);
     }
 
     private void RotateWhileAiming(float deltaTime)
@@ -402,5 +388,33 @@ public class PlayerMovementStateMachine : MonoBehaviour, IDamageable
 
         playerMotor.SetCameraTransform(cameraTransform);
         lastConfiguredCameraTransform = cameraTransform;
+    }
+
+    private void ConfigureAnimationController()
+    {
+        if (playerAnimationController == null)
+        {
+            Debug.LogError("[PlayerMovementStateMachine] Missing PlayerAnimationController component on player root.", this);
+            return;
+        }
+
+        playerAnimationController.Configure(characterAnimator);
+        lastConfiguredAnimator = characterAnimator;
+    }
+
+    private void SyncAnimationControllerAnimator()
+    {
+        if (playerAnimationController == null)
+        {
+            return;
+        }
+
+        if (lastConfiguredAnimator == characterAnimator)
+        {
+            return;
+        }
+
+        playerAnimationController.Configure(characterAnimator);
+        lastConfiguredAnimator = characterAnimator;
     }
 }
