@@ -116,21 +116,29 @@ public class ZombieSpawnerManager : MonoBehaviour
     {
         while (true)
         {
-            if (pendingSpawnRequests > 0 && aliveZombies.Count < maxAliveZombies)
-                        if (!spawningEnabled)
-                        {
-                            yield return null;
-                            continue;
-                        }
-
-                        if (pendingSpawnRequests > 0 && aliveZombies.Count < maxAliveZombies)
+            if (!spawningEnabled)
             {
-                if (SpawnZombie())
-                {
-                    pendingSpawnRequests--;
-                    yield return new WaitForSeconds(spawnIntervalSeconds);
-                    continue;
-                }
+                yield return null;
+                continue;
+            }
+
+            if (pendingSpawnRequests <= 0)
+            {
+                yield return null;
+                continue;
+            }
+
+            if (aliveZombies.Count >= maxAliveZombies)
+            {
+                yield return null;
+                continue;
+            }
+
+            if (SpawnZombie())
+            {
+                pendingSpawnRequests--;
+                yield return new WaitForSeconds(spawnIntervalSeconds);
+                continue;
             }
 
             yield return null;
