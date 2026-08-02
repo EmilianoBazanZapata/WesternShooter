@@ -42,10 +42,10 @@ public class PlayerMovementStateMachine : MonoBehaviour, IDamageable
     [SerializeField] private float footstepVolume = 0.75f;
     [SerializeField] private AudioMixerGroup sfxOutputGroup;
 
-    private CharacterController characterController;
+    private PlayerMotor playerMotor;
     private IPlayerMovementState currentState;
     private PlayerInputReader playerInputReader;
-    private float verticalVelocity;
+    private Transform lastConfiguredCameraTransform;
     private PlayerHealthModel playerHealth;
     private float nextStepTime;
     private AudioSource footstepSource;
@@ -71,7 +71,7 @@ public class PlayerMovementStateMachine : MonoBehaviour, IDamageable
 
     private void Awake()
     {
-        characterController = GetComponent<CharacterController>();
+        playerMotor = GetComponent<PlayerMotor>();
         playerInputReader = GetComponent<PlayerInputReader>();
 
         playerHealth = new PlayerHealthModel(maxHealth);
@@ -87,6 +87,8 @@ public class PlayerMovementStateMachine : MonoBehaviour, IDamageable
         {
             characterAnimator = GetComponentInChildren<Animator>();
         }
+
+        ConfigureMotor();
     }
 
     private void OnDestroy()
@@ -104,6 +106,7 @@ public class PlayerMovementStateMachine : MonoBehaviour, IDamageable
 
     private void Update()
     {
+        SyncMotorCameraTransform();
         HandleDeathInput();
 
         if (IsDead)
@@ -145,7 +148,7 @@ public class PlayerMovementStateMachine : MonoBehaviour, IDamageable
             return;
         }
 
-        bool isMovingOnGround = characterController.isGrounded && IsMovePressed;
+        bool isMovingOnGround = playerMotor != null && playerMotor.IsGrounded && IsMovePressed;
         if (!isMovingOnGround)
         {
             nextStepTime = 0f;
@@ -256,33 +259,22 @@ public class PlayerMovementStateMachine : MonoBehaviour, IDamageable
 
     public void Move(float speed, float deltaTime)
     {
-        Vector3 moveDirection = GetMoveDirection();
-
-        if (moveDirection.sqrMagnitude > 0.0001f)
+        if (playerMotor == null)
         {
-            Quaternion targetRotation = Quaternion.LookRotation(moveDirection, Vector3.up);
-            transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationSpeed * deltaTime);
+            return;
         }
 
-        Vector3 horizontalVelocity = moveDirection * speed;
-        Vector3 finalVelocity = new Vector3(horizontalVelocity.x, verticalVelocity, horizontalVelocity.z);
-        characterController.Move(finalVelocity * deltaTime);
+        playerMotor.Move(MoveInput, speed, deltaTime);
     }
 
     public void ApplyGravity(float deltaTime)
     {
-        if (characterController.isGrounded && verticalVelocity < 0f)
+        if (playerMotor == null)
         {
-            verticalVelocity = groundedStickForce;
+            return;
         }
 
-        verticalVelocity += gravity * deltaTime;
-
-        if (!IsMovePressed)
-        {
-            Vector3 verticalOnlyVelocity = new Vector3(0f, verticalVelocity, 0f);
-            characterController.Move(verticalOnlyVelocity * deltaTime);
-        }
+        playerMotor.ApplyGravity(IsMovePressed, deltaTime);
     }
 
     private void ReadInput()
@@ -376,63 +368,39 @@ public class PlayerMovementStateMachine : MonoBehaviour, IDamageable
 
     private void RotateWhileAiming(float deltaTime)
     {
-        if (cameraTransform != null)
-        {
-            Vector3 cameraForward = cameraTransform.forward;
-            cameraForward.y = 0f;
-
-            if (cameraForward.sqrMagnitude > 0.0001f)
-            {
-                Quaternion targetRotation = Quaternion.LookRotation(cameraForward.normalized, Vector3.up);
-                transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, aimAlignSpeed * deltaTime);
-                return;
-            }
-        }
-
-        float yawInput = 0f;
-
-        if (Mouse.current != null)
-        {
-            yawInput += Mouse.current.delta.ReadValue().x;
-        }
-
-        if (Gamepad.current != null)
-        {
-            yawInput += Gamepad.current.rightStick.ReadValue().x * 10f;
-        }
-
-        if (Mathf.Abs(yawInput) <= 0.001f)
+        if (playerMotor == null)
         {
             return;
         }
 
-        float yawDelta = yawInput * aimRotationSpeed * deltaTime;
-        transform.Rotate(0f, yawDelta, 0f, Space.World);
+        playerMotor.RotateWhileAiming(deltaTime);
     }
 
-    private Vector3 GetMoveDirection()
+    private void ConfigureMotor()
     {
-        Vector3 rawDirection = new Vector3(MoveInput.x, 0f, MoveInput.y);
-
-        if (rawDirection.sqrMagnitude <= 0.0001f)
+        if (playerMotor == null)
         {
-            return Vector3.zero;
+            Debug.LogError("[PlayerMovementStateMachine] Missing PlayerMotor component on player root.", this);
+            return;
         }
 
-        if (cameraTransform == null)
+        playerMotor.Configure(cameraTransform, rotationSpeed, aimRotationSpeed, aimAlignSpeed, gravity, groundedStickForce);
+        lastConfiguredCameraTransform = cameraTransform;
+    }
+
+    private void SyncMotorCameraTransform()
+    {
+        if (playerMotor == null)
         {
-            return rawDirection.normalized;
+            return;
         }
 
-        Vector3 cameraForward = cameraTransform.forward;
-        Vector3 cameraRight = cameraTransform.right;
-        cameraForward.y = 0f;
-        cameraRight.y = 0f;
+        if (lastConfiguredCameraTransform == cameraTransform)
+        {
+            return;
+        }
 
-        cameraForward.Normalize();
-        cameraRight.Normalize();
-
-        Vector3 moveDirection = cameraForward * rawDirection.z + cameraRight * rawDirection.x;
-        return moveDirection.normalized;
+        playerMotor.SetCameraTransform(cameraTransform);
+        lastConfiguredCameraTransform = cameraTransform;
     }
 }
