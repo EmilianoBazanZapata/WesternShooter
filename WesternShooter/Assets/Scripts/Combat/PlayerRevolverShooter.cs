@@ -13,6 +13,7 @@ public class PlayerRevolverShooter : MonoBehaviour
     [SerializeField] private float aimRayDistance = 250f;
     [SerializeField] private LayerMask aimLayers = ~0;
 
+    private PlayerInputReader playerInputReader;
     private Camera mainCamera;
     private float nextFireTime;
     private Collider[] ownerColliders;
@@ -24,23 +25,32 @@ public class PlayerRevolverShooter : MonoBehaviour
             playerMovement = GetComponent<PlayerMovementStateMachine>();
         }
 
+        playerInputReader = GetComponent<PlayerInputReader>();
+
         mainCamera = Camera.main;
         ownerColliders = GetComponentsInChildren<Collider>();
     }
 
     private void Update()
     {
-        if (playerMovement == null || muzzlePoint == null || bulletPrefab == null)
+        if (playerMovement == null || playerInputReader == null || muzzlePoint == null || bulletPrefab == null)
         {
             return;
         }
 
-        if (!playerMovement.IsAimPressed)
+        playerInputReader.EnsurePolledThisFrame();
+
+        if (playerMovement.IsDead)
         {
             return;
         }
 
-        if (!playerMovement.IsShootPressedThisFrame)
+        if (!playerInputReader.IsAimPressed)
+        {
+            return;
+        }
+
+        if (!playerInputReader.IsShootPressedThisFrame)
         {
             return;
         }
