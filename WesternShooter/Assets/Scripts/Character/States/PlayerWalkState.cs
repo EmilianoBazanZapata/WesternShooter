@@ -1,5 +1,3 @@
-using UnityEngine;
-
 public class PlayerWalkState : IPlayerMovementState
 {
     public void Enter(PlayerMovementStateMachine machine)

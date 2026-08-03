@@ -62,7 +62,6 @@ public class PlayerMovementStateMachine : MonoBehaviour, IDamageable
     public bool IsRunPressed { get; private set; }
     public bool IsAimPressed { get; private set; }
     public bool IsShootPressed { get; private set; }
-    public bool IsShootPressedThisFrame { get; private set; }
     public bool IsDead => playerHealth != null && playerHealth.IsDead;
 
     private void Awake()
@@ -115,7 +114,6 @@ public class PlayerMovementStateMachine : MonoBehaviour, IDamageable
             IsRunPressed = false;
             IsAimPressed = false;
             IsShootPressed = false;
-            IsShootPressedThisFrame = false;
 
             SwitchState(IdleState);
             ApplyGravity(Time.deltaTime);
@@ -192,7 +190,6 @@ public class PlayerMovementStateMachine : MonoBehaviour, IDamageable
             IsRunPressed = false;
             IsAimPressed = false;
             IsShootPressed = false;
-            IsShootPressedThisFrame = false;
             return;
         }
 
@@ -201,7 +198,6 @@ public class PlayerMovementStateMachine : MonoBehaviour, IDamageable
         IsRunPressed = playerInputReader.IsRunPressed;
         IsAimPressed = playerInputReader.IsAimPressed;
         IsShootPressed = playerInputReader.IsShootPressed;
-        IsShootPressedThisFrame = playerInputReader.IsShootPressedThisFrame;
     }
 
     private void HandleDeathInput()

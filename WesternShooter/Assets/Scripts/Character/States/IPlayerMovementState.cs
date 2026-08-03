@@ -1,5 +1,3 @@
-using UnityEngine;
-
 public interface IPlayerMovementState
 {
     void Enter(PlayerMovementStateMachine machine);
