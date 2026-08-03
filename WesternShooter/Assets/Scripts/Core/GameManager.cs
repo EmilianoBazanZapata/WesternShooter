@@ -26,7 +26,22 @@ public class GameManager : MonoBehaviour
     [Header("Cursor")]
     [SerializeField] private bool lockCursorInGame = true;
 
+    [Header("References")]
+    [SerializeField] private PlayerMovementStateMachine playerMovement;
+
     public GameState CurrentState { get; private set; } = GameState.InGame;
+
+    private bool defeatHandledFromPlayerDeath;
+
+    private void OnEnable()
+    {
+        SubscribeToPlayerDeath();
+    }
+
+    private void OnDisable()
+    {
+        UnsubscribeFromPlayerDeath();
+    }
 
     private void Start()
     {
@@ -97,6 +112,55 @@ public class GameManager : MonoBehaviour
     public void ShowDefeat()
     {
         SetState(GameState.Defeat);
+    }
+
+    private void SubscribeToPlayerDeath()
+    {
+        if (playerMovement == null)
+        {
+            playerMovement = FindFirstObjectByType<PlayerMovementStateMachine>();
+        }
+
+        if (playerMovement == null)
+        {
+            Debug.LogWarning("[GameManager] PlayerMovementStateMachine reference is missing.", this);
+            return;
+        }
+
+        playerMovement.Died -= OnPlayerDied;
+        playerMovement.Died += OnPlayerDied;
+    }
+
+    private void UnsubscribeFromPlayerDeath()
+    {
+        if (playerMovement == null)
+        {
+            return;
+        }
+
+        playerMovement.Died -= OnPlayerDied;
+    }
+
+    private void OnPlayerDied()
+    {
+        if (defeatHandledFromPlayerDeath)
+        {
+            return;
+        }
+
+        defeatHandledFromPlayerDeath = true;
+
+        GameAudioManager manager = GameAudioManager.Instance
+            ?? FindFirstObjectByType<GameAudioManager>();
+
+        if (manager == null)
+        {
+            Debug.LogWarning("[GameManager] No GameAudioManager found for defeat music.", this);
+            return;
+        }
+
+        manager.OnPlayerDefeatTriggered();
+        ShowDefeat();
     }
 
     public void ExitGame()

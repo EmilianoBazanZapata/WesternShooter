@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.Audio;
@@ -53,6 +54,8 @@ public class PlayerMovementStateMachine : MonoBehaviour, IDamageable
     public float RunSpeed => runSpeed;
     public float MaxHealth => playerHealth != null ? playerHealth.MaxHealth : maxHealth;
     public float CurrentHealth => playerHealth != null ? playerHealth.CurrentHealth : maxHealth;
+
+    public event Action Died;
 
     public Vector2 MoveInput { get; private set; }
     public bool IsMovePressed => MoveInput.sqrMagnitude > 0.01f;
@@ -234,18 +237,7 @@ public class PlayerMovementStateMachine : MonoBehaviour, IDamageable
         deathEffectsApplied = true;
 
         playerAnimationController?.PlayDeath();
-
-        GameAudioManager manager = GameAudioManager.Instance
-            ?? FindFirstObjectByType<GameAudioManager>();
-
-        if (manager == null)
-        {
-            Debug.LogWarning("[PlayerMovementStateMachine] No GameAudioManager found for defeat music.", this);
-            return;
-        }
-
-        manager.OnPlayerDefeatTriggered();
-        FindFirstObjectByType<GameManager>()?.ShowDefeat();
+        Died?.Invoke();
     }
 
     private void UpdateAnimatorParameters()
