@@ -24,7 +24,9 @@ public class PlayerVoiceAudioController : MonoBehaviour
     [Header("Playback")]
     [SerializeField] private bool stopCurrentClipBeforePlay = true;
 
-    private int pendingVoiceSnapshotRequests;
+    private Coroutine voiceLifecycleCoroutine;
+    private GameAudioManager activeSnapshotManager;
+    private bool hasActiveSnapshotRequest;
 
     private void Awake()
     {
@@ -63,60 +65,94 @@ public class PlayerVoiceAudioController : MonoBehaviour
             return false;
         }
 
+        GameAudioManager manager = GameAudioManager.Instance
+            ?? FindFirstObjectByType<GameAudioManager>();
+
         if (stopCurrentClipBeforePlay && voiceSource.isPlaying)
         {
             voiceSource.Stop();
         }
 
-        GameAudioManager manager = GameAudioManager.Instance
-            ?? FindFirstObjectByType<GameAudioManager>();
-
-        manager?.OnCharacterVoicePlaybackStarted();
-        pendingVoiceSnapshotRequests++;
+        AcquireVoiceSnapshotRequest(manager);
 
         voiceSource.clip = clipToPlay;
         voiceSource.Play();
-        StartCoroutine(WaitForVoicePlaybackEnd(manager));
+        StartVoiceLifecycleCoroutine();
 
         cue.nextAllowedPlayTime = Time.time + cue.cooldown;
         return true;
     }
 
-    private System.Collections.IEnumerator WaitForVoicePlaybackEnd(GameAudioManager manager)
+    private System.Collections.IEnumerator WaitForVoicePlaybackEnd()
     {
         while (voiceSource != null && voiceSource.isPlaying)
         {
             yield return null;
         }
 
-        NotifyVoicePlaybackEnded(manager);
+        voiceLifecycleCoroutine = null;
+        ReleaseVoiceSnapshotRequest();
     }
 
     private void OnDisable()
     {
-        if (pendingVoiceSnapshotRequests <= 0)
-        {
-            return;
-        }
-
-        GameAudioManager manager = GameAudioManager.Instance
-            ?? FindFirstObjectByType<GameAudioManager>();
-
-        while (pendingVoiceSnapshotRequests > 0)
-        {
-            NotifyVoicePlaybackEnded(manager);
-        }
+        StopVoiceLifecycleAndReleaseSnapshot();
     }
 
-    private void NotifyVoicePlaybackEnded(GameAudioManager manager)
+    private void OnDestroy()
     {
-        if (pendingVoiceSnapshotRequests <= 0)
+        StopVoiceLifecycleAndReleaseSnapshot();
+    }
+
+    private void StartVoiceLifecycleCoroutine()
+    {
+        if (voiceLifecycleCoroutine != null)
+        {
+            StopCoroutine(voiceLifecycleCoroutine);
+            voiceLifecycleCoroutine = null;
+        }
+
+        voiceLifecycleCoroutine = StartCoroutine(WaitForVoicePlaybackEnd());
+    }
+
+    private void StopVoiceLifecycleAndReleaseSnapshot()
+    {
+        if (voiceLifecycleCoroutine != null)
+        {
+            StopCoroutine(voiceLifecycleCoroutine);
+            voiceLifecycleCoroutine = null;
+        }
+
+        ReleaseVoiceSnapshotRequest();
+    }
+
+    private void AcquireVoiceSnapshotRequest(GameAudioManager manager)
+    {
+        if (hasActiveSnapshotRequest)
         {
             return;
         }
 
-        pendingVoiceSnapshotRequests--;
-        manager?.OnCharacterVoicePlaybackEnded();
+        hasActiveSnapshotRequest = true;
+        activeSnapshotManager = manager;
+        manager?.OnCharacterVoicePlaybackStarted();
+    }
+
+    private void ReleaseVoiceSnapshotRequest()
+    {
+        if (!hasActiveSnapshotRequest)
+        {
+            return;
+        }
+
+        hasActiveSnapshotRequest = false;
+
+        if (activeSnapshotManager != null)
+        {
+            activeSnapshotManager.OnCharacterVoicePlaybackEnded();
+        }
+
+        activeSnapshotManager = null;
     }
 
     private VoiceCue FindCue(string cueId)

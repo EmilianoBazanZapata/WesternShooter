@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -6,15 +7,6 @@ using UnityEngine.SceneManagement;
 
 public class GameAudioManager : MonoBehaviour
 {
-    private const float MinDb = -80f;
-    private const float MaxDb = 0f;
-
-    private enum GameplaySnapshotState
-    {
-        Peaceful,
-        Wanted
-    }
-
     [Header("Mixer")]
     [SerializeField] private AudioMixer audioMixer;
 
@@ -45,11 +37,10 @@ public class GameAudioManager : MonoBehaviour
 
     public static GameAudioManager Instance { get; private set; }
 
-    private readonly HashSet<int> pausedNonMusicSourceIds = new HashSet<int>();
-    private Coroutine crossFadeCoroutine;
-    private GameplaySnapshotState currentGameplaySnapshotState = GameplaySnapshotState.Peaceful;
-    private int activeVoiceSnapshotRequests;
-    private bool isCharacterVoiceSnapshotActive;
+    private AudioMixerController mixerController;
+    private GameplaySnapshotController snapshotController;
+    private AdaptiveMusicController adaptiveMusicController;
+    private NonMusicPauseController nonMusicPauseController;
 
     private void Awake()
     {
@@ -60,6 +51,7 @@ public class GameAudioManager : MonoBehaviour
         }
 
         Instance = this;
+        InitializeControllers();
     }
 
     private void OnEnable()
@@ -70,6 +62,164 @@ public class GameAudioManager : MonoBehaviour
     private void OnDisable()
     {
         SceneManager.sceneLoaded -= OnSceneLoaded;
+    }
+
+    private void OnDestroy()
+    {
+        if (Instance == this)
+        {
+            Instance = null;
+        }
+
+        adaptiveMusicController?.StopActiveCrossFade();
+        snapshotController?.ForceReleaseAllVoiceRequests();
+        nonMusicPauseController?.ClearTrackedState();
+    }
+
+    public void SetVolume(AudioBusType busType, float linearValue)
+    {
+        mixerController?.SetVolume(busType, linearValue);
+    }
+
+    public void SetPeacefulSnapshot()
+    {
+        snapshotController?.SetPeacefulSnapshot();
+        adaptiveMusicController?.SetPeacefulMusic();
+    }
+
+    public void SetWantedSnapshot()
+    {
+        snapshotController?.SetWantedSnapshot();
+        adaptiveMusicController?.SetWantedMusic();
+    }
+
+    public void OnCharacterVoicePlaybackStarted()
+    {
+        snapshotController?.OnCharacterVoicePlaybackStarted();
+    }
+
+    public void OnCharacterVoicePlaybackEnded()
+    {
+        snapshotController?.OnCharacterVoicePlaybackEnded();
+    }
+
+    public void OnGameplayAreaPeacefulTriggered()
+    {
+        SetPeacefulSnapshot();
+    }
+
+    public void OnGameplayAreaWantedTriggered()
+    {
+        SetWantedSnapshot();
+    }
+
+    public void OnPlayerVictoryTriggered()
+    {
+        PlayVictoryMusic();
+    }
+
+    public void OnPlayerDefeatTriggered()
+    {
+        PlayDefeatMusic();
+    }
+
+    public void PlayVictoryMusic()
+    {
+        if (victoryMusicSource == null)
+        {
+            Debug.LogWarning("[GameAudioManager] Outcome music source is not assigned.", this);
+            return;
+        }
+
+        adaptiveMusicController?.PlayVictoryMusic();
+    }
+
+    public void PlayDefeatMusic()
+    {
+        if (defeatMusicSource == null)
+        {
+            Debug.LogWarning("[GameAudioManager] Outcome music source is not assigned.", this);
+            return;
+        }
+
+        adaptiveMusicController?.PlayDefeatMusic();
+    }
+
+    public void SetNonMusicMuted(bool muted)
+    {
+        nonMusicPauseController?.SetNonMusicMuted(muted);
+    }
+
+    private void OnSceneLoaded(Scene loadedScene, LoadSceneMode loadMode)
+    {
+        if (!applyPeacefulOnGameplaySceneLoad)
+        {
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(gameplaySceneName) && !string.Equals(loadedScene.name, gameplaySceneName, System.StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        SetPeacefulSnapshot();
+    }
+
+    private void InitializeControllers()
+    {
+        mixerController = new AudioMixerController(
+            audioMixer,
+            masterParameter,
+            musicParameter,
+            sfxParameter,
+            voiceParameter,
+            ambienceParameter);
+
+        snapshotController = new GameplaySnapshotController(
+            peacefulSnapshot,
+            wantedSnapshot,
+            characterVoiceSnapshot,
+            snapshotTransitionTime,
+            characterVoiceTransitionTime);
+
+        adaptiveMusicController = new AdaptiveMusicController(
+            this,
+            peacefulMusicSource,
+            wantedMusicSource,
+            victoryMusicSource,
+            defeatMusicSource,
+            musicCrossFadeDuration);
+
+        nonMusicPauseController = new NonMusicPauseController();
+    }
+}
+
+internal sealed class AudioMixerController
+{
+    private const float MinDb = -80f;
+    private const float MaxDb = 0f;
+
+    private readonly AudioMixer audioMixer;
+    private readonly string masterParameter;
+    private readonly string musicParameter;
+    private readonly string sfxParameter;
+    private readonly string voiceParameter;
+    private readonly string ambienceParameter;
+
+    public AudioMixerController(
+        AudioMixer audioMixer,
+        string masterParameter,
+        string musicParameter,
+        string sfxParameter,
+        string voiceParameter,
+        string ambienceParameter)
+    {
+        this.audioMixer = audioMixer;
+        this.masterParameter = masterParameter;
+        this.musicParameter = musicParameter;
+        this.sfxParameter = sfxParameter;
+        this.voiceParameter = voiceParameter;
+        this.ambienceParameter = ambienceParameter;
     }
 
     public void SetVolume(AudioBusType busType, float linearValue)
@@ -96,20 +246,60 @@ public class GameAudioManager : MonoBehaviour
         }
     }
 
+    private void ApplyMixerVolume(string parameterName, float linearValue)
+    {
+        if (audioMixer == null || string.IsNullOrWhiteSpace(parameterName))
+        {
+            return;
+        }
+
+        float dbValue = Mathf.Clamp(Mathf.Log10(linearValue) * 20f, MinDb, MaxDb);
+        audioMixer.SetFloat(parameterName, dbValue);
+    }
+}
+
+internal sealed class GameplaySnapshotController
+{
+    private enum GameplaySnapshotState
+    {
+        Peaceful,
+        Wanted
+    }
+
+    private readonly AudioMixerSnapshot peacefulSnapshot;
+    private readonly AudioMixerSnapshot wantedSnapshot;
+    private readonly AudioMixerSnapshot characterVoiceSnapshot;
+    private readonly float snapshotTransitionTime;
+    private readonly float characterVoiceTransitionTime;
+
+    private GameplaySnapshotState currentGameplaySnapshotState = GameplaySnapshotState.Peaceful;
+    private int activeVoiceSnapshotRequests;
+    private bool isCharacterVoiceSnapshotActive;
+
+    public GameplaySnapshotController(
+        AudioMixerSnapshot peacefulSnapshot,
+        AudioMixerSnapshot wantedSnapshot,
+        AudioMixerSnapshot characterVoiceSnapshot,
+        float snapshotTransitionTime,
+        float characterVoiceTransitionTime)
+    {
+        this.peacefulSnapshot = peacefulSnapshot;
+        this.wantedSnapshot = wantedSnapshot;
+        this.characterVoiceSnapshot = characterVoiceSnapshot;
+        this.snapshotTransitionTime = snapshotTransitionTime;
+        this.characterVoiceTransitionTime = characterVoiceTransitionTime;
+    }
+
     public void SetPeacefulSnapshot()
     {
         currentGameplaySnapshotState = GameplaySnapshotState.Peaceful;
         ApplyGameplaySnapshotIfAvailable();
-
-        CrossFadeMusic(peacefulMusicSource, wantedMusicSource);
     }
 
     public void SetWantedSnapshot()
     {
         currentGameplaySnapshotState = GameplaySnapshotState.Wanted;
         ApplyGameplaySnapshotIfAvailable();
-
-        CrossFadeMusic(wantedMusicSource, peacefulMusicSource);
     }
 
     public void OnCharacterVoicePlaybackStarted()
@@ -151,6 +341,95 @@ public class GameAudioManager : MonoBehaviour
         ApplyGameplaySnapshotIfAvailable();
     }
 
+    public void ForceReleaseAllVoiceRequests()
+    {
+        activeVoiceSnapshotRequests = 0;
+
+        if (!isCharacterVoiceSnapshotActive)
+        {
+            return;
+        }
+
+        isCharacterVoiceSnapshotActive = false;
+        ApplyGameplaySnapshotIfAvailable();
+    }
+
+    private void ApplyGameplaySnapshotIfAvailable()
+    {
+        if (isCharacterVoiceSnapshotActive)
+        {
+            return;
+        }
+
+        AudioMixerSnapshot snapshot = currentGameplaySnapshotState == GameplaySnapshotState.Wanted
+            ? wantedSnapshot
+            : peacefulSnapshot;
+
+        if (snapshot != null)
+        {
+            snapshot.TransitionTo(snapshotTransitionTime);
+        }
+    }
+}
+
+internal sealed class AdaptiveMusicController
+{
+    private readonly MonoBehaviour coroutineHost;
+    private readonly AudioSource peacefulMusicSource;
+    private readonly AudioSource wantedMusicSource;
+    private readonly AudioSource victoryMusicSource;
+    private readonly AudioSource defeatMusicSource;
+    private readonly float musicCrossFadeDuration;
+
+    private Coroutine crossFadeCoroutine;
+
+    public AdaptiveMusicController(
+        MonoBehaviour coroutineHost,
+        AudioSource peacefulMusicSource,
+        AudioSource wantedMusicSource,
+        AudioSource victoryMusicSource,
+        AudioSource defeatMusicSource,
+        float musicCrossFadeDuration)
+    {
+        this.coroutineHost = coroutineHost;
+        this.peacefulMusicSource = peacefulMusicSource;
+        this.wantedMusicSource = wantedMusicSource;
+        this.victoryMusicSource = victoryMusicSource;
+        this.defeatMusicSource = defeatMusicSource;
+        this.musicCrossFadeDuration = musicCrossFadeDuration;
+    }
+
+    public void SetPeacefulMusic()
+    {
+        CrossFadeMusic(peacefulMusicSource, wantedMusicSource);
+    }
+
+    public void SetWantedMusic()
+    {
+        CrossFadeMusic(wantedMusicSource, peacefulMusicSource);
+    }
+
+    public void PlayVictoryMusic()
+    {
+        PlayOutcomeMusic(victoryMusicSource);
+    }
+
+    public void PlayDefeatMusic()
+    {
+        PlayOutcomeMusic(defeatMusicSource);
+    }
+
+    public void StopActiveCrossFade()
+    {
+        if (crossFadeCoroutine == null || coroutineHost == null)
+        {
+            return;
+        }
+
+        coroutineHost.StopCoroutine(crossFadeCoroutine);
+        crossFadeCoroutine = null;
+    }
+
     private void CrossFadeMusic(AudioSource fadeIn, AudioSource fadeOut)
     {
         if (fadeIn == null && fadeOut == null)
@@ -158,12 +437,17 @@ public class GameAudioManager : MonoBehaviour
             return;
         }
 
-        if (crossFadeCoroutine != null)
+        if (coroutineHost == null)
         {
-            StopCoroutine(crossFadeCoroutine);
+            return;
         }
 
-        crossFadeCoroutine = StartCoroutine(CrossFadeRoutine(fadeIn, fadeOut));
+        if (crossFadeCoroutine != null)
+        {
+            coroutineHost.StopCoroutine(crossFadeCoroutine);
+        }
+
+        crossFadeCoroutine = coroutineHost.StartCoroutine(CrossFadeRoutine(fadeIn, fadeOut));
     }
 
     private IEnumerator CrossFadeRoutine(AudioSource fadeIn, AudioSource fadeOut)
@@ -205,49 +489,14 @@ public class GameAudioManager : MonoBehaviour
         crossFadeCoroutine = null;
     }
 
-    public void OnGameplayAreaPeacefulTriggered()
-    {
-        SetPeacefulSnapshot();
-    }
-
-    public void OnGameplayAreaWantedTriggered()
-    {
-        SetWantedSnapshot();
-    }
-
-    public void OnPlayerVictoryTriggered()
-    {
-        PlayVictoryMusic();
-    }
-
-    public void OnPlayerDefeatTriggered()
-    {
-        PlayDefeatMusic();
-    }
-
-    public void PlayVictoryMusic()
-    {
-        PlayOutcomeMusic(victoryMusicSource);
-    }
-
-    public void PlayDefeatMusic()
-    {
-        PlayOutcomeMusic(defeatMusicSource);
-    }
-
     private void PlayOutcomeMusic(AudioSource outcomeSource)
     {
         if (outcomeSource == null)
         {
-            Debug.LogWarning("[GameAudioManager] Outcome music source is not assigned.", this);
             return;
         }
 
-        if (crossFadeCoroutine != null)
-        {
-            StopCoroutine(crossFadeCoroutine);
-            crossFadeCoroutine = null;
-        }
+        StopActiveCrossFade();
 
         StopMusicSource(peacefulMusicSource);
         StopMusicSource(wantedMusicSource);
@@ -260,6 +509,22 @@ public class GameAudioManager : MonoBehaviour
         outcomeSource.Play();
     }
 
+    private static void StopMusicSource(AudioSource source, AudioSource except = null)
+    {
+        if (source == null || source == except)
+        {
+            return;
+        }
+
+        source.Stop();
+        source.volume = 1f;
+    }
+}
+
+internal sealed class NonMusicPauseController
+{
+    private readonly HashSet<int> pausedNonMusicSourceIds = new HashSet<int>();
+
     public void SetNonMusicMuted(bool muted)
     {
         if (muted)
@@ -271,9 +536,14 @@ public class GameAudioManager : MonoBehaviour
         ResumePausedNonMusicSources();
     }
 
+    public void ClearTrackedState()
+    {
+        pausedNonMusicSourceIds.Clear();
+    }
+
     private void PauseNonMusicSources()
     {
-        AudioSource[] allSources = FindObjectsByType<AudioSource>(FindObjectsSortMode.None);
+        AudioSource[] allSources = UnityEngine.Object.FindObjectsByType<AudioSource>(FindObjectsSortMode.None);
         for (int i = 0; i < allSources.Length; i++)
         {
             AudioSource source = allSources[i];
@@ -294,7 +564,7 @@ public class GameAudioManager : MonoBehaviour
             return;
         }
 
-        AudioSource[] allSources = FindObjectsByType<AudioSource>(FindObjectsSortMode.None);
+        AudioSource[] allSources = UnityEngine.Object.FindObjectsByType<AudioSource>(FindObjectsSortMode.None);
         for (int i = 0; i < allSources.Length; i++)
         {
             AudioSource source = allSources[i];
@@ -318,60 +588,6 @@ public class GameAudioManager : MonoBehaviour
     private static bool IsMusicSource(AudioSource source)
     {
         AudioMixerGroup outputGroup = source.outputAudioMixerGroup;
-        return outputGroup != null && string.Equals(outputGroup.name, "Music", System.StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static void StopMusicSource(AudioSource source, AudioSource except = null)
-    {
-        if (source == null || source == except)
-        {
-            return;
-        }
-
-        source.Stop();
-        source.volume = 1f;
-    }
-
-    private void OnSceneLoaded(Scene loadedScene, LoadSceneMode loadMode)
-    {
-        if (!applyPeacefulOnGameplaySceneLoad)
-        {
-            return;
-        }
-
-        if (!string.IsNullOrWhiteSpace(gameplaySceneName) && !string.Equals(loadedScene.name, gameplaySceneName, System.StringComparison.Ordinal))
-        {
-            return;
-        }
-
-        SetPeacefulSnapshot();
-    }
-
-    private void ApplyGameplaySnapshotIfAvailable()
-    {
-        if (isCharacterVoiceSnapshotActive)
-        {
-            return;
-        }
-
-        AudioMixerSnapshot snapshot = currentGameplaySnapshotState == GameplaySnapshotState.Wanted
-            ? wantedSnapshot
-            : peacefulSnapshot;
-
-        if (snapshot != null)
-        {
-            snapshot.TransitionTo(snapshotTransitionTime);
-        }
-    }
-
-    private void ApplyMixerVolume(string parameterName, float linearValue)
-    {
-        if (audioMixer == null || string.IsNullOrWhiteSpace(parameterName))
-        {
-            return;
-        }
-
-        float dbValue = Mathf.Clamp(Mathf.Log10(linearValue) * 20f, MinDb, MaxDb);
-        audioMixer.SetFloat(parameterName, dbValue);
+        return outputGroup != null && string.Equals(outputGroup.name, "Music", StringComparison.OrdinalIgnoreCase);
     }
 }
