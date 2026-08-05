@@ -31,7 +31,7 @@ public class ZombieStateMachine : MonoBehaviour, IDamageable
 
     private NavMeshAgent navMeshAgent;
     private IEnemyState currentState;
-    private float currentHealth;
+    private ZombieHealthModel zombieHealth;
     private float nextAttackTime;
     private bool hasRaisedDeathEvent;
 
@@ -40,6 +40,8 @@ public class ZombieStateMachine : MonoBehaviour, IDamageable
     public ZombieDeadState DeadState { get; } = new ZombieDeadState();
 
     public bool IsDead { get; private set; }
+    public float CurrentHealth => zombieHealth != null ? zombieHealth.CurrentHealth : maxHealth;
+    public float MaxHealth => zombieHealth != null ? zombieHealth.MaxHealth : maxHealth;
     public bool HasTarget => target != null;
     public event Action<ZombieStateMachine> ZombieDied;
 
@@ -71,7 +73,7 @@ public class ZombieStateMachine : MonoBehaviour, IDamageable
             }
         }
 
-        currentHealth = maxHealth;
+        zombieHealth = new ZombieHealthModel(maxHealth);
         navMeshAgent.stoppingDistance = attackRange * 0.9f;
 
         EnsureDamageCollider();
@@ -83,7 +85,7 @@ public class ZombieStateMachine : MonoBehaviour, IDamageable
 
         if (logHealthOnSpawn)
         {
-            Debug.Log($"[Zombie] {name} spawned with {currentHealth:0.#}/{maxHealth:0.#} HP.", this);
+            Debug.Log($"[Zombie] {name} spawned with {CurrentHealth:0.#}/{MaxHealth:0.#} HP.", this);
         }
     }
 
@@ -115,31 +117,45 @@ public class ZombieStateMachine : MonoBehaviour, IDamageable
             return;
         }
 
-        float appliedDamage = Mathf.Max(0f, damageAmount);
-        currentHealth = Mathf.Max(0f, currentHealth - appliedDamage);
+        if (zombieHealth == null)
+        {
+            return;
+        }
+
+        bool becameDead = zombieHealth.ApplyDamage(damageAmount, out float appliedDamage);
 
         if (logHealthOnHit)
         {
-            Debug.Log($"[Zombie] {name} took {appliedDamage:0.#} damage. Remaining HP: {currentHealth:0.#}/{maxHealth:0.#}.", this);
+            Debug.Log($"[Zombie] {name} took {appliedDamage:0.#} damage. Remaining HP: {CurrentHealth:0.#}/{MaxHealth:0.#}.", this);
         }
 
-        if (currentHealth <= 0f)
+        if (becameDead)
         {
-            IsDead = true;
-
-            if (!hasRaisedDeathEvent)
-            {
-                hasRaisedDeathEvent = true;
-                ZombieDied?.Invoke(this);
-            }
-
-            if (logHealthOnHit)
-            {
-                Debug.Log($"[Zombie] {name} is dead.", this);
-            }
-
-            SwitchState(DeadState);
+            OnHealthDepleted();
         }
+    }
+
+    private void OnHealthDepleted()
+    {
+        if (IsDead)
+        {
+            return;
+        }
+
+        IsDead = true;
+
+        if (!hasRaisedDeathEvent)
+        {
+            hasRaisedDeathEvent = true;
+            ZombieDied?.Invoke(this);
+        }
+
+        if (logHealthOnHit)
+        {
+            Debug.Log($"[Zombie] {name} is dead.", this);
+        }
+
+        SwitchState(DeadState);
     }
 
     public void UpdateDestinationToTarget()
