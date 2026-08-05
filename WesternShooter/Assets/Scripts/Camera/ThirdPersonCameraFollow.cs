@@ -69,7 +69,6 @@ public class ThirdPersonCameraFollow : MonoBehaviour
     private float sideOffsetVelocity;
     private float fieldOfViewVelocity;
     private bool useLeftShoulder;
-    private bool lastGamepadShoulderSwapPressed;
     private PlayerInputReader playerInputReader;
     private bool hasWarnedMissingInputReader;
 
@@ -171,21 +170,12 @@ public class ThirdPersonCameraFollow : MonoBehaviour
             return;
         }
 
-        bool keyboardPressed = Keyboard.current != null && Keyboard.current[shoulderSwapKey].wasPressedThisFrame;
-
-        bool gamepadPressed = false;
-        if (Gamepad.current != null)
+        if (playerInputReader == null)
         {
-            bool currentPress = Gamepad.current.rightStickButton.isPressed;
-            gamepadPressed = currentPress && !lastGamepadShoulderSwapPressed;
-            lastGamepadShoulderSwapPressed = currentPress;
-        }
-        else
-        {
-            lastGamepadShoulderSwapPressed = false;
+            return;
         }
 
-        if (keyboardPressed || gamepadPressed)
+        if (playerInputReader.GetShoulderSwapPressedThisFrame(shoulderSwapKey))
         {
             useLeftShoulder = !useLeftShoulder;
         }

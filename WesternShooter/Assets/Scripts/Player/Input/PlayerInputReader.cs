@@ -11,7 +11,19 @@ public class PlayerInputReader : MonoBehaviour
     public bool IsShootPressedThisFrame { get; private set; }
 
     private bool wasShootPressedLastFrame;
+    private bool wasGamepadShoulderSwapPressedLastFrame;
+    private bool isGamepadShoulderSwapPressedThisFrame;
     private int lastPolledFrame = int.MinValue;
+
+    public bool GetShoulderSwapPressedThisFrame(Key shoulderSwapKey)
+    {
+        EnsurePolledThisFrame();
+
+        bool keyboardPressed = Keyboard.current != null
+            && Keyboard.current[shoulderSwapKey].wasPressedThisFrame;
+
+        return keyboardPressed || isGamepadShoulderSwapPressedThisFrame;
+    }
 
     public void EnsurePolledThisFrame()
     {
@@ -29,6 +41,7 @@ public class PlayerInputReader : MonoBehaviour
         bool mouseShootPressed = false;
         bool gamepadAimPressed = false;
         bool gamepadShootPressed = false;
+        bool gamepadShoulderSwapPressed = false;
 
         if (Keyboard.current != null)
         {
@@ -50,6 +63,7 @@ public class PlayerInputReader : MonoBehaviour
             IsRunPressed = IsRunPressed || Gamepad.current.leftStickButton.isPressed;
             gamepadAimPressed = Gamepad.current.leftTrigger.ReadValue() > 0.2f;
             gamepadShootPressed = Gamepad.current.rightTrigger.ReadValue() > 0.2f;
+            gamepadShoulderSwapPressed = Gamepad.current.rightStickButton.isPressed;
         }
 
         if (Mouse.current != null)
@@ -58,6 +72,10 @@ public class PlayerInputReader : MonoBehaviour
             mouseAimPressed = Mouse.current.rightButton.isPressed;
             mouseShootPressed = Mouse.current.leftButton.isPressed;
         }
+
+        isGamepadShoulderSwapPressedThisFrame = gamepadShoulderSwapPressed
+            && !wasGamepadShoulderSwapPressedLastFrame;
+        wasGamepadShoulderSwapPressedLastFrame = gamepadShoulderSwapPressed;
 
         LookInput = lookInput;
 
