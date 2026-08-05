@@ -55,7 +55,9 @@ public class PlayerMovementStateMachine : MonoBehaviour, IDamageable
     public float MaxHealth => playerHealth != null ? playerHealth.MaxHealth : maxHealth;
     public float CurrentHealth => playerHealth != null ? playerHealth.CurrentHealth : maxHealth;
 
+    public event Action<float, float> HealthChanged;
     public event Action Died;
+    public event Action<bool> AimChanged;
 
     public Vector2 MoveInput { get; private set; }
     public bool IsMovePressed => MoveInput.sqrMagnitude > 0.01f;
@@ -72,6 +74,7 @@ public class PlayerMovementStateMachine : MonoBehaviour, IDamageable
         playerInputReader = GetComponent<PlayerInputReader>();
 
         playerHealth = new PlayerHealthModel(maxHealth);
+        playerHealth.HealthChanged += OnHealthChanged;
         playerHealth.Died += OnPlayerDied;
 
         if (cameraTransform == null && Camera.main != null)
@@ -93,6 +96,7 @@ public class PlayerMovementStateMachine : MonoBehaviour, IDamageable
     {
         if (playerHealth != null)
         {
+            playerHealth.HealthChanged -= OnHealthChanged;
             playerHealth.Died -= OnPlayerDied;
         }
     }
@@ -112,7 +116,7 @@ public class PlayerMovementStateMachine : MonoBehaviour, IDamageable
         {
             MoveInput = Vector2.zero;
             IsRunPressed = false;
-            IsAimPressed = false;
+            SetAimPressed(false);
             IsShootPressed = false;
 
             SwitchState(IdleState);
@@ -188,7 +192,7 @@ public class PlayerMovementStateMachine : MonoBehaviour, IDamageable
         {
             MoveInput = Vector2.zero;
             IsRunPressed = false;
-            IsAimPressed = false;
+            SetAimPressed(false);
             IsShootPressed = false;
             return;
         }
@@ -196,8 +200,24 @@ public class PlayerMovementStateMachine : MonoBehaviour, IDamageable
         playerInputReader.EnsurePolledThisFrame();
         MoveInput = playerInputReader.MoveInput;
         IsRunPressed = playerInputReader.IsRunPressed;
-        IsAimPressed = playerInputReader.IsAimPressed;
+        SetAimPressed(playerInputReader.IsAimPressed);
         IsShootPressed = playerInputReader.IsShootPressed;
+    }
+
+    private void SetAimPressed(bool isAimPressed)
+    {
+        if (IsAimPressed == isAimPressed)
+        {
+            return;
+        }
+
+        IsAimPressed = isAimPressed;
+        AimChanged?.Invoke(IsAimPressed);
+    }
+
+    private void OnHealthChanged(float currentHealth, float maxHealthValue)
+    {
+        HealthChanged?.Invoke(currentHealth, maxHealthValue);
     }
 
     private void HandleDeathInput()
