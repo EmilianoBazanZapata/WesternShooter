@@ -28,19 +28,23 @@ public class GameManager : MonoBehaviour
 
     [Header("References")]
     [SerializeField] private PlayerMovementStateMachine playerMovement;
+    [SerializeField] private ZombieSpawnerManager zombieSpawner;
 
     public GameState CurrentState { get; private set; } = GameState.InGame;
 
     private bool defeatHandledFromPlayerDeath;
+    private bool victoryHandledFromZombieProgression;
 
     private void OnEnable()
     {
         SubscribeToPlayerDeath();
+        SubscribeToZombieProgression();
     }
 
     private void OnDisable()
     {
         UnsubscribeFromPlayerDeath();
+        UnsubscribeFromZombieProgression();
     }
 
     private void Start()
@@ -161,6 +165,54 @@ public class GameManager : MonoBehaviour
 
         manager.OnPlayerDefeatTriggered();
         ShowDefeat();
+    }
+
+    private void SubscribeToZombieProgression()
+    {
+        if (zombieSpawner == null)
+        {
+            zombieSpawner = FindFirstObjectByType<ZombieSpawnerManager>();
+        }
+
+        if (zombieSpawner == null || zombieSpawner.KillProgress == null)
+        {
+            return;
+        }
+
+        zombieSpawner.KillProgress.VictoryThresholdReached -= OnVictoryThresholdReached;
+        zombieSpawner.KillProgress.VictoryThresholdReached += OnVictoryThresholdReached;
+    }
+
+    private void UnsubscribeFromZombieProgression()
+    {
+        if (zombieSpawner == null || zombieSpawner.KillProgress == null)
+        {
+            return;
+        }
+
+        zombieSpawner.KillProgress.VictoryThresholdReached -= OnVictoryThresholdReached;
+    }
+
+    private void OnVictoryThresholdReached(int totalKills)
+    {
+        if (victoryHandledFromZombieProgression)
+        {
+            return;
+        }
+
+        victoryHandledFromZombieProgression = true;
+
+        GameAudioManager manager = GameAudioManager.Instance
+            ?? FindFirstObjectByType<GameAudioManager>();
+
+        if (manager == null)
+        {
+            Debug.LogWarning("[GameManager] No GameAudioManager found for victory music.", this);
+            return;
+        }
+
+        manager.OnPlayerVictoryTriggered();
+        ShowVictory();
     }
 
     public void ExitGame()

@@ -25,15 +25,21 @@ public class ZombieSpawnerManager : MonoBehaviour
 
     private readonly List<ZombieStateMachine> aliveZombies = new List<ZombieStateMachine>();
     private int pendingSpawnRequests;
-    private int totalKilled;
+    private ZombieKillProgress killProgress;
     private Coroutine spawnQueueRoutine;
     private bool spawningEnabled;
-    private bool hasTriggeredVictoryMusic;
 
     public int AliveCount => aliveZombies.Count;
     public int MaxAliveZombies => maxAliveZombies;
     public int PendingSpawnCount => pendingSpawnRequests;
-    public int TotalKilled => totalKilled;
+    public int TotalKilled => killProgress != null ? killProgress.TotalKilled : 0;
+    public ZombieKillProgress KillProgress => killProgress;
+
+    private void Awake()
+    {
+        killProgress = new ZombieKillProgress();
+        killProgress.Configure(victoryKillThreshold);
+    }
 
     private void Start()
     {
@@ -83,8 +89,7 @@ public class ZombieSpawnerManager : MonoBehaviour
         {
             deadZombie.ZombieDied -= OnZombieDied;
             aliveZombies.Remove(deadZombie);
-            totalKilled++;
-            TryTriggerVictoryMusic();
+            killProgress?.RegisterKill();
         }
 
         if (logSpawnerEvents)
@@ -236,34 +241,4 @@ public class ZombieSpawnerManager : MonoBehaviour
         }
     }
 
-    private void TryTriggerVictoryMusic()
-    {
-        if (hasTriggeredVictoryMusic)
-        {
-            return;
-        }
-
-        if (victoryKillThreshold <= 0 || totalKilled < victoryKillThreshold)
-        {
-            return;
-        }
-
-        GameAudioManager manager = GameAudioManager.Instance
-            ?? FindFirstObjectByType<GameAudioManager>();
-
-        if (manager == null)
-        {
-            Debug.LogWarning("[ZombieSpawnerManager] No GameAudioManager found for victory music.", this);
-            return;
-        }
-
-        hasTriggeredVictoryMusic = true;
-        manager.OnPlayerVictoryTriggered();
-        FindFirstObjectByType<GameManager>()?.ShowVictory();
-
-        if (logSpawnerEvents)
-        {
-            Debug.Log($"[Spawner] Victory music triggered at {totalKilled} kills.", this);
-        }
-    }
 }
