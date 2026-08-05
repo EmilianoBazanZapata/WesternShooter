@@ -32,7 +32,9 @@ public class ZombieStateMachine : MonoBehaviour, IDamageable
     private NavMeshAgent navMeshAgent;
     private IEnemyState currentState;
     private ZombieHealthModel zombieHealth;
-    private float nextAttackTime;
+    private ZombieTarget zombieTarget;
+    private ZombieNavigation zombieNavigation;
+    private ZombieAttackController zombieAttackController;
     private bool hasRaisedDeathEvent;
 
     public ZombieChaseState ChaseState { get; } = new ZombieChaseState();
@@ -42,7 +44,7 @@ public class ZombieStateMachine : MonoBehaviour, IDamageable
     public bool IsDead { get; private set; }
     public float CurrentHealth => zombieHealth != null ? zombieHealth.CurrentHealth : maxHealth;
     public float MaxHealth => zombieHealth != null ? zombieHealth.MaxHealth : maxHealth;
-    public bool HasTarget => target != null;
+    public bool HasTarget => zombieTarget != null && zombieTarget.HasTarget;
     public event Action<ZombieStateMachine> ZombieDied;
 
     private void Awake()
@@ -64,17 +66,27 @@ public class ZombieStateMachine : MonoBehaviour, IDamageable
             }
         }
 
-        if (target == null)
+        zombieTarget = new ZombieTarget(target);
+        if (!zombieTarget.TryResolveFallbackTarget())
         {
-            PlayerMovementStateMachine player = FindFirstObjectByType<PlayerMovementStateMachine>();
-            if (player != null)
-            {
-                target = player.transform;
-            }
+            Debug.LogWarning($"[Zombie] {name} has no target and could not resolve player fallback.", this);
+        }
+        else if (target == null)
+        {
+            target = zombieTarget.Target;
         }
 
         zombieHealth = new ZombieHealthModel(maxHealth);
-        navMeshAgent.stoppingDistance = attackRange * 0.9f;
+        zombieNavigation = new ZombieNavigation(navMeshAgent, transform, turnSpeed);
+        zombieNavigation.SetStoppingDistance(attackRange * 0.9f);
+
+        zombieAttackController = new ZombieAttackController(
+            zombieAnimator,
+            zombieAudio,
+            AttackTriggerHash,
+            attackRange,
+            attackCooldown,
+            attackDamage);
 
         EnsureDamageCollider();
     }
@@ -91,8 +103,8 @@ public class ZombieStateMachine : MonoBehaviour, IDamageable
 
     private void Update()
     {
-        bool canPlayFootsteps = navMeshAgent != null && navMeshAgent.enabled && !navMeshAgent.isStopped;
-        float velocitySqr = navMeshAgent != null ? navMeshAgent.velocity.sqrMagnitude : 0f;
+        bool canPlayFootsteps = zombieNavigation != null && zombieNavigation.CanPlayFootsteps;
+        float velocitySqr = zombieNavigation != null ? zombieNavigation.CurrentVelocitySqrMagnitude : 0f;
         zombieAudio?.UpdateFootsteps(canPlayFootsteps, velocitySqr);
 
         currentState?.Tick(this, Time.deltaTime);
@@ -160,92 +172,72 @@ public class ZombieStateMachine : MonoBehaviour, IDamageable
 
     public void UpdateDestinationToTarget()
     {
-        if (!HasTarget || navMeshAgent == null || !navMeshAgent.enabled)
+        if (!HasTarget || zombieNavigation == null)
         {
             return;
         }
 
-        navMeshAgent.SetDestination(target.position);
+        zombieNavigation.UpdateDestination(zombieTarget.Position);
     }
 
     public bool CanAttackTarget()
     {
-        if (!HasTarget)
+        if (!HasTarget || zombieAttackController == null)
         {
             return false;
         }
 
-        return Vector3.Distance(transform.position, target.position) <= attackRange;
+        return zombieAttackController.CanAttack(transform.position, zombieTarget);
     }
 
     public void StopMovement()
     {
-        if (navMeshAgent == null || !navMeshAgent.enabled)
-        {
-            return;
-        }
-
-        navMeshAgent.isStopped = true;
-        navMeshAgent.ResetPath();
+        zombieNavigation?.StopMovement();
     }
 
     public void ResumeMovement()
     {
-        if (navMeshAgent == null || !navMeshAgent.enabled)
-        {
-            return;
-        }
-
-        navMeshAgent.isStopped = false;
+        zombieNavigation?.ResumeMovement();
     }
 
     public void DisableAgent()
     {
-        if (navMeshAgent == null || !navMeshAgent.enabled)
-        {
-            return;
-        }
-
-        navMeshAgent.enabled = false;
+        zombieNavigation?.DisableAgent();
     }
 
     public void RotateTowardsTarget(float deltaTime)
     {
-        if (!HasTarget)
+        if (!HasTarget || zombieNavigation == null)
         {
             return;
         }
 
-        Vector3 direction = target.position - transform.position;
-        direction.y = 0f;
-
-        if (direction.sqrMagnitude <= 0.0001f)
-        {
-            return;
-        }
-
-        Quaternion targetRotation = Quaternion.LookRotation(direction.normalized, Vector3.up);
-        transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, turnSpeed * deltaTime);
+        zombieNavigation.RotateTowards(zombieTarget.Position, deltaTime);
     }
 
     public void TryAttack()
     {
-        if (Time.time < nextAttackTime)
+        zombieAttackController?.TryAttack(zombieTarget);
+    }
+
+    public void SetTarget(Transform newTarget)
+    {
+        if (zombieTarget == null)
         {
-            return;
+            zombieTarget = new ZombieTarget(newTarget);
+        }
+        else
+        {
+            zombieTarget.SetTarget(newTarget);
         }
 
-        nextAttackTime = Time.time + attackCooldown;
+        target = newTarget;
+    }
 
-        if (zombieAnimator != null)
-        {
-            zombieAnimator.SetTrigger(AttackTriggerHash);
-        }
-
-        zombieAudio?.PlayAttack();
-
-        IDamageable damageableTarget = target != null ? target.GetComponentInParent<IDamageable>() : null;
-        damageableTarget?.TakeDamage(attackDamage);
+    public void ClearTarget()
+    {
+        zombieTarget?.ClearTarget();
+        target = null;
     }
 
     public void SetMovingAnimation(bool isMoving)
