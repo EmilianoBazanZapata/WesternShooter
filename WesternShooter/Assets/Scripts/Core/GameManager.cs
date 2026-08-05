@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
@@ -31,9 +32,11 @@ public class GameManager : MonoBehaviour
     [SerializeField] private ZombieSpawnerManager zombieSpawner;
 
     public GameState CurrentState { get; private set; } = GameState.InGame;
+    public event Action<GameState, GameState> GameStateChanged;
 
     private bool defeatHandledFromPlayerDeath;
     private bool victoryHandledFromZombieProgression;
+    private bool hasAppliedInitialState;
 
     private void OnEnable()
     {
@@ -49,6 +52,8 @@ public class GameManager : MonoBehaviour
 
     private void Start()
     {
+        SubscribeToPlayerDeath();
+        SubscribeToZombieProgression();
         SetState(GameState.InGame);
     }
 
@@ -94,6 +99,11 @@ public class GameManager : MonoBehaviour
 
     public void ResumeGame()
     {
+        if (CurrentState == GameState.Victory || CurrentState == GameState.Defeat)
+        {
+            return;
+        }
+
         Debug.Log("[GameManager] ResumeGame called.", this);
         SetState(GameState.InGame);
     }
@@ -249,6 +259,13 @@ public class GameManager : MonoBehaviour
 
     private void SetState(GameState newState)
     {
+        GameState previousState = CurrentState;
+
+        if (hasAppliedInitialState && previousState == newState)
+        {
+            return;
+        }
+
         CurrentState = newState;
 
         bool isPaused = CurrentState == GameState.Pause
@@ -290,6 +307,13 @@ public class GameManager : MonoBehaviour
         GameAudioManager.Instance?.SetNonMusicMuted(isPaused);
 
         UpdateCursorState(isPaused);
+
+        if (hasAppliedInitialState && previousState != newState)
+        {
+            GameStateChanged?.Invoke(previousState, newState);
+        }
+
+        hasAppliedInitialState = true;
     }
 
     private void UpdateCursorState(bool isPaused)
