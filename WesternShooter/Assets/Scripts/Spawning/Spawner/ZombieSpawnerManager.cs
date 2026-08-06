@@ -1,244 +1,225 @@
+﻿using System.Collections.Generic;
 using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
+using WesternShooter.Zombies.StateMachine;
+using WesternShooter.Spawning.Progression;
 
-public class ZombieSpawnerManager : MonoBehaviour
+namespace WesternShooter.Spawning
 {
-    [Header("Setup")]
-    [SerializeField] private ZombieStateMachine zombiePrefab;
-    [SerializeField] private Transform[] spawnPoints;
-
-    [Header("Population")]
-    [SerializeField] private int maxAliveZombies = 10;
-    [SerializeField] private int initialSpawnCount = 10;
-    [SerializeField] private float respawnDelaySeconds = 3f;
-    [SerializeField] private float spawnIntervalSeconds = 5f;
-
-    [Header("Debug")]
-    [SerializeField] private bool logSpawnerEvents = false;
-
-    [Header("Spawn Control")]
-    [SerializeField] private bool spawnOnStart = true;
-
-    [Header("Progression Audio")]
-    [SerializeField] private int victoryKillThreshold = 3;
-
-    private readonly List<ZombieStateMachine> aliveZombies = new List<ZombieStateMachine>();
-    private int pendingSpawnRequests;
-    private ZombieKillProgress killProgress;
-    private Coroutine spawnQueueRoutine;
-    private bool spawningEnabled;
-
-    public int AliveCount => aliveZombies.Count;
-    public int MaxAliveZombies => maxAliveZombies;
-    public int PendingSpawnCount => pendingSpawnRequests;
-    public int TotalKilled => killProgress != null ? killProgress.TotalKilled : 0;
-    public ZombieKillProgress KillProgress => killProgress;
-
-    private void Awake()
+    public class ZombieSpawnerManager : MonoBehaviour
     {
-        killProgress = new ZombieKillProgress();
-        killProgress.Configure(victoryKillThreshold);
-    }
+        [Header("Setup")]
+        [SerializeField] private ZombieStateMachine zombiePrefab;
+        [SerializeField] private Transform[] spawnPoints;
 
-    private void Start()
-    {
-        if (zombiePrefab == null)
+        [Header("Population")]
+        [SerializeField] private int maxAliveZombies = 10;
+        [SerializeField] private int initialSpawnCount = 10;
+        [SerializeField] private float respawnDelaySeconds = 3f;
+        [SerializeField] private float spawnIntervalSeconds = 5f;
+
+        [Header("Debug")]
+        [SerializeField] private bool logSpawnerEvents = false;
+
+        [Header("Spawn Control")]
+        [SerializeField] private bool spawnOnStart = true;
+
+        [Header("Progression Audio")]
+        [SerializeField] private int victoryKillThreshold = 3;
+
+        private readonly List<ZombieStateMachine> aliveZombies = new List<ZombieStateMachine>();
+        private int pendingSpawnRequests;
+        private ZombieKillProgress killProgress;
+        private Coroutine spawnQueueRoutine;
+        private bool spawningEnabled;
+
+        public int AliveCount => aliveZombies.Count;
+        public int MaxAliveZombies => maxAliveZombies;
+        public int PendingSpawnCount => pendingSpawnRequests;
+        public int TotalKilled => killProgress != null ? killProgress.TotalKilled : 0;
+        public ZombieKillProgress KillProgress => killProgress;
+
+        private void Awake()
         {
-            Debug.LogWarning("ZombieSpawnerManager: zombiePrefab is not assigned.", this);
-            enabled = false;
-            return;
+            killProgress = new ZombieKillProgress();
+            killProgress.Configure(victoryKillThreshold);
         }
 
-        if (spawnPoints == null || spawnPoints.Length == 0)
+        private void Start()
         {
-            Debug.LogWarning("ZombieSpawnerManager: no spawn points assigned.", this);
-            enabled = false;
-            return;
-        }
-
-        RegisterExistingZombiesInScene();
-        spawnQueueRoutine = StartCoroutine(ProcessSpawnQueue());
-
-        if (spawnOnStart)
-        {
-            StartSpawning();
-        }
-    }
-
-    private void OnDestroy()
-    {
-        if (spawnQueueRoutine != null)
-        {
-            StopCoroutine(spawnQueueRoutine);
-            spawnQueueRoutine = null;
-        }
-
-        for (int i = 0; i < aliveZombies.Count; i++)
-        {
-            if (aliveZombies[i] != null)
+            if (zombiePrefab == null)
             {
-                aliveZombies[i].ZombieDied -= OnZombieDied;
+                Debug.LogWarning("ZombieSpawnerManager: zombiePrefab is not assigned.", this);
+                enabled = false;
+                return;
+            }
+
+            if (spawnPoints == null || spawnPoints.Length == 0)
+            {
+                Debug.LogWarning("ZombieSpawnerManager: no spawn points assigned.", this);
+                enabled = false;
+                return;
+            }
+
+            RegisterExistingZombiesInScene();
+            spawnQueueRoutine = StartCoroutine(ProcessSpawnQueue());
+
+            if (spawnOnStart)
+                StartSpawning();
+        }
+
+        private void OnDestroy()
+        {
+            if (spawnQueueRoutine != null)
+            {
+                StopCoroutine(spawnQueueRoutine);
+                spawnQueueRoutine = null;
+            }
+
+            for (var i = 0; i < aliveZombies.Count; i++)
+            {
+                if (aliveZombies[i] != null)
+                    aliveZombies[i].ZombieDied -= OnZombieDied;
             }
         }
-    }
 
-    private void OnZombieDied(ZombieStateMachine deadZombie)
-    {
-        if (deadZombie != null)
+        private void OnZombieDied(ZombieStateMachine deadZombie)
         {
-            deadZombie.ZombieDied -= OnZombieDied;
-            aliveZombies.Remove(deadZombie);
-            killProgress?.RegisterKill();
-        }
-
-        if (logSpawnerEvents)
-        {
-            Debug.Log($"[Spawner] Zombie died. Alive now: {aliveZombies.Count}/{maxAliveZombies}", this);
-        }
-
-        StartCoroutine(QueueRespawnAfterDelay());
-    }
-
-    private IEnumerator QueueRespawnAfterDelay()
-    {
-        yield return new WaitForSeconds(respawnDelaySeconds);
-
-        if (aliveZombies.Count + pendingSpawnRequests >= maxAliveZombies)
-        {
-            yield break;
-        }
-
-        pendingSpawnRequests++;
-
-        if (logSpawnerEvents)
-        {
-            Debug.Log($"[Spawner] Queued respawn. Pending: {pendingSpawnRequests}", this);
-        }
-    }
-
-    private IEnumerator ProcessSpawnQueue()
-    {
-        while (true)
-        {
-            if (!spawningEnabled)
+            if (deadZombie != null)
             {
+                deadZombie.ZombieDied -= OnZombieDied;
+                aliveZombies.Remove(deadZombie);
+                killProgress?.RegisterKill();
+            }
+
+            if (logSpawnerEvents)
+                Debug.Log($"[Spawner] Zombie died. Alive now: {aliveZombies.Count}/{maxAliveZombies}", this);
+
+            StartCoroutine(QueueRespawnAfterDelay());
+        }
+
+        private IEnumerator QueueRespawnAfterDelay()
+        {
+            yield return new WaitForSeconds(respawnDelaySeconds);
+
+            if (aliveZombies.Count + pendingSpawnRequests >= maxAliveZombies)
+            {
+                yield break;
+            }
+
+            pendingSpawnRequests++;
+
+            if (logSpawnerEvents)
+                Debug.Log($"[Spawner] Queued respawn. Pending: {pendingSpawnRequests}", this);
+        }
+
+        private IEnumerator ProcessSpawnQueue()
+        {
+            while (true)
+            {
+                if (!spawningEnabled)
+                {
+                    yield return null;
+                    continue;
+                }
+
+                if (pendingSpawnRequests <= 0)
+                {
+                    yield return null;
+                    continue;
+                }
+
+                if (aliveZombies.Count >= maxAliveZombies)
+                {
+                    yield return null;
+                    continue;
+                }
+
+                if (SpawnZombie())
+                {
+                    pendingSpawnRequests--;
+                    yield return new WaitForSeconds(spawnIntervalSeconds);
+                    continue;
+                }
+
                 yield return null;
-                continue;
             }
+        }
 
-            if (pendingSpawnRequests <= 0)
-            {
-                yield return null;
-                continue;
-            }
-
+        private bool SpawnZombie()
+        {
             if (aliveZombies.Count >= maxAliveZombies)
+                return false;
+
+            var spawnPoint = GetRandomSpawnPoint();
+            if (spawnPoint == null)
+                return false;
+
+            var spawnedZombie = Instantiate(
+                zombiePrefab,
+                spawnPoint.position,
+                spawnPoint.rotation);
+
+            RegisterZombie(spawnedZombie);
+
+            if (logSpawnerEvents)
+                Debug.Log($"[Spawner] Spawned zombie at {spawnPoint.name}. Alive: {aliveZombies.Count}/{maxAliveZombies}", this);
+
+            return true;
+        }
+
+        private Transform GetRandomSpawnPoint()
+        {
+            if (spawnPoints == null || spawnPoints.Length == 0)
+                return null;
+
+            var index = Random.Range(0, spawnPoints.Length);
+            return spawnPoints[index];
+        }
+
+        private void RegisterExistingZombiesInScene()
+        {
+            var zombiesInScene = FindObjectsByType<ZombieStateMachine>(FindObjectsSortMode.None);
+            for (var i = 0; i < zombiesInScene.Length; i++)
             {
-                yield return null;
-                continue;
+                RegisterZombie(zombiesInScene[i]);
             }
-
-            if (SpawnZombie())
-            {
-                pendingSpawnRequests--;
-                yield return new WaitForSeconds(spawnIntervalSeconds);
-                continue;
-            }
-
-            yield return null;
         }
-    }
 
-    private bool SpawnZombie()
-    {
-        if (aliveZombies.Count >= maxAliveZombies)
+        private void RegisterZombie(ZombieStateMachine zombie)
         {
-            return false;
+            if (zombie == null || zombie.IsDead)
+                return;
+
+            zombie.ZombieDied -= OnZombieDied;
+            zombie.ZombieDied += OnZombieDied;
+
+            if (!aliveZombies.Contains(zombie))
+                aliveZombies.Add(zombie);
         }
 
-        Transform spawnPoint = GetRandomSpawnPoint();
-        if (spawnPoint == null)
+        public void StartSpawning()
         {
-            return false;
+            if (spawningEnabled)
+                return;
+
+            spawningEnabled = true;
+            var availableSlots = Mathf.Max(0, maxAliveZombies - aliveZombies.Count);
+            pendingSpawnRequests = Mathf.Clamp(initialSpawnCount, 0, availableSlots);
+
+            if (logSpawnerEvents)
+                Debug.Log("[Spawner] Spawning started.", this);
         }
 
-        ZombieStateMachine spawnedZombie = Instantiate(
-            zombiePrefab,
-            spawnPoint.position,
-            spawnPoint.rotation);
-
-        RegisterZombie(spawnedZombie);
-
-        if (logSpawnerEvents)
+        public void StopSpawning()
         {
-            Debug.Log($"[Spawner] Spawned zombie at {spawnPoint.name}. Alive: {aliveZombies.Count}/{maxAliveZombies}", this);
+            spawningEnabled = false;
+
+            if (logSpawnerEvents)
+                Debug.Log("[Spawner] Spawning stopped.", this);
         }
 
-        return true;
-    }
-
-    private Transform GetRandomSpawnPoint()
-    {
-        if (spawnPoints == null || spawnPoints.Length == 0)
-        {
-            return null;
-        }
-
-        int index = Random.Range(0, spawnPoints.Length);
-        return spawnPoints[index];
-    }
-
-    private void RegisterExistingZombiesInScene()
-    {
-        ZombieStateMachine[] zombiesInScene = FindObjectsByType<ZombieStateMachine>(FindObjectsSortMode.None);
-        for (int i = 0; i < zombiesInScene.Length; i++)
-        {
-            RegisterZombie(zombiesInScene[i]);
-        }
-    }
-
-    private void RegisterZombie(ZombieStateMachine zombie)
-    {
-        if (zombie == null || zombie.IsDead)
-        {
-            return;
-        }
-
-        zombie.ZombieDied -= OnZombieDied;
-        zombie.ZombieDied += OnZombieDied;
-
-        if (!aliveZombies.Contains(zombie))
-        {
-            aliveZombies.Add(zombie);
-        }
-    }
-
-    public void StartSpawning()
-    {
-        if (spawningEnabled)
-        {
-            return;
-        }
-
-        spawningEnabled = true;
-        int availableSlots = Mathf.Max(0, maxAliveZombies - aliveZombies.Count);
-        pendingSpawnRequests = Mathf.Clamp(initialSpawnCount, 0, availableSlots);
-
-        if (logSpawnerEvents)
-        {
-            Debug.Log("[Spawner] Spawning started.", this);
-        }
-    }
-
-    public void StopSpawning()
-    {
-        spawningEnabled = false;
-
-        if (logSpawnerEvents)
-        {
-            Debug.Log("[Spawner] Spawning stopped.", this);
-        }
     }
 
 }
+

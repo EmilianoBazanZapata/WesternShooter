@@ -1,47 +1,45 @@
-using UnityEngine;
+﻿using UnityEngine;
 
-public class PlayerAnimationController : MonoBehaviour
+namespace WesternShooter.Player.Presentation
 {
-    private static readonly int IsWalkingHash = Animator.StringToHash("IsWalking");
-    private static readonly int IsRunningHash = Animator.StringToHash("IsRunning");
-    private static readonly int IsAimingHash = Animator.StringToHash("IsAiming");
-    private static readonly int IsShootingHash = Animator.StringToHash("IsShooting");
-    private static readonly int IsDeadHash = Animator.StringToHash("IsDead");
-    private static readonly int DieTriggerHash = Animator.StringToHash("DieTrigger");
-
-    private Animator characterAnimator;
-
-    public void Configure(Animator resolvedAnimator)
+    public class PlayerAnimationController : MonoBehaviour
     {
-        characterAnimator = resolvedAnimator;
-    }
+        private static readonly int IsWalkingHash = Animator.StringToHash("IsWalking");
+        private static readonly int IsRunningHash = Animator.StringToHash("IsRunning");
+        private static readonly int IsAimingHash = Animator.StringToHash("IsAiming");
+        private static readonly int IsShootingHash = Animator.StringToHash("IsShooting");
+        private static readonly int IsDeadHash = Animator.StringToHash("IsDead");
+        private static readonly int DieTriggerHash = Animator.StringToHash("DieTrigger");
 
-    public void SyncGameplayAnimationState(bool isDead, bool isMovePressed, bool isRunPressed, bool isAimPressed, bool isShootPressed)
-    {
-        if (characterAnimator == null)
+        private Animator characterAnimator;
+
+        public void Configure(Animator resolvedAnimator) => characterAnimator = resolvedAnimator;
+
+        public void SyncGameplayAnimationState(bool isDead, bool isMovePressed, bool isRunPressed, bool isAimPressed, bool isShootPressed)
         {
-            return;
+            if (characterAnimator == null)
+                return;
+
+            var isWalking = !isDead && isMovePressed && !isRunPressed && !isAimPressed;
+            var isRunning = !isDead && isMovePressed && isRunPressed && !isAimPressed;
+            var isAiming = !isDead && isAimPressed;
+            var isShooting = !isDead && (isAimPressed || isShootPressed);
+
+            characterAnimator.SetBool(IsWalkingHash, isWalking);
+            characterAnimator.SetBool(IsRunningHash, isRunning);
+            characterAnimator.SetBool(IsAimingHash, isAiming);
+            characterAnimator.SetBool(IsShootingHash, isShooting);
+            characterAnimator.SetBool(IsDeadHash, isDead);
         }
 
-        bool isWalking = !isDead && isMovePressed && !isRunPressed && !isAimPressed;
-        bool isRunning = !isDead && isMovePressed && isRunPressed && !isAimPressed;
-        bool isAiming = !isDead && isAimPressed;
-        bool isShooting = !isDead && (isAimPressed || isShootPressed);
-
-        characterAnimator.SetBool(IsWalkingHash, isWalking);
-        characterAnimator.SetBool(IsRunningHash, isRunning);
-        characterAnimator.SetBool(IsAimingHash, isAiming);
-        characterAnimator.SetBool(IsShootingHash, isShooting);
-        characterAnimator.SetBool(IsDeadHash, isDead);
-    }
-
-    public void PlayDeath()
-    {
-        if (characterAnimator == null)
+        public void PlayDeath()
         {
-            return;
-        }
+            if (characterAnimator == null)
+                return;
 
-        characterAnimator.SetTrigger(DieTriggerHash);
+            characterAnimator.SetTrigger(DieTriggerHash);
+        }
     }
+
 }
+

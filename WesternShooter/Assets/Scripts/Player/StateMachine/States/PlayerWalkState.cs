@@ -1,27 +1,31 @@
-public class PlayerWalkState : IPlayerMovementState
+﻿using WesternShooter.Player.StateMachine;
+
+namespace WesternShooter.Player.StateMachine.States
 {
-    public void Enter(PlayerMovementStateMachine machine)
+    public class PlayerWalkState : IPlayerMovementState
     {
-    }
-
-    public void Tick(PlayerMovementStateMachine machine, float deltaTime)
-    {
-        machine.ApplyGravity(deltaTime);
-        machine.Move(machine.WalkSpeed, deltaTime);
-
-        if (!machine.IsMovePressed)
+        public void Enter(PlayerMovementStateMachine machine)
         {
-            machine.SwitchState(machine.IdleState);
-            return;
         }
 
-        if (machine.IsRunPressed)
+        public void Tick(PlayerMovementStateMachine machine, float deltaTime)
         {
-            machine.SwitchState(machine.RunState);
+            machine.ApplyGravity(deltaTime);
+            machine.Move(machine.WalkSpeed, deltaTime);
+
+            if (!machine.IsMovePressed)
+            {
+                machine.SwitchState(machine.IdleState);
+                return;
+            }
+
+            if (machine.IsRunPressed)
+                machine.SwitchState(machine.RunState);
+        }
+
+        public void Exit(PlayerMovementStateMachine machine)
+        {
         }
     }
 
-    public void Exit(PlayerMovementStateMachine machine)
-    {
-    }
 }

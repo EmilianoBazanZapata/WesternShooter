@@ -1,60 +1,61 @@
+﻿using WesternShooter.Shared.Combat;
 using UnityEngine;
+using WesternShooter.Zombies.Presentation;
+using WesternShooter.Zombies.Targeting;
 
-public class ZombieAttackController
+namespace WesternShooter.Zombies.Combat
 {
-    private readonly Animator zombieAnimator;
-    private readonly ZombieAudioController zombieAudio;
-    private readonly int attackTriggerHash;
-    private readonly float attackRange;
-    private readonly float attackCooldown;
-    private readonly float attackDamage;
-
-    private float nextAttackTime;
-
-    public ZombieAttackController(
-        Animator zombieAnimator,
-        ZombieAudioController zombieAudio,
-        int attackTriggerHash,
-        float attackRange,
-        float attackCooldown,
-        float attackDamage)
+    public class ZombieAttackController
     {
-        this.zombieAnimator = zombieAnimator;
-        this.zombieAudio = zombieAudio;
-        this.attackTriggerHash = attackTriggerHash;
-        this.attackRange = attackRange;
-        this.attackCooldown = attackCooldown;
-        this.attackDamage = attackDamage;
-    }
+        private readonly Animator zombieAnimator;
+        private readonly ZombieAudioController zombieAudio;
+        private readonly int attackTriggerHash;
+        private readonly float attackRange;
+        private readonly float attackCooldown;
+        private readonly float attackDamage;
 
-    public bool CanAttack(Vector3 origin, ZombieTarget zombieTarget)
-    {
-        if (zombieTarget == null || !zombieTarget.HasTarget)
+        private float nextAttackTime;
+
+        public ZombieAttackController(
+            Animator zombieAnimator,
+            ZombieAudioController zombieAudio,
+            int attackTriggerHash,
+            float attackRange,
+            float attackCooldown,
+            float attackDamage)
         {
-            return false;
+            this.zombieAnimator = zombieAnimator;
+            this.zombieAudio = zombieAudio;
+            this.attackTriggerHash = attackTriggerHash;
+            this.attackRange = attackRange;
+            this.attackCooldown = attackCooldown;
+            this.attackDamage = attackDamage;
         }
 
-        return zombieTarget.DistanceFrom(origin) <= attackRange;
-    }
-
-    public void TryAttack(ZombieTarget zombieTarget)
-    {
-        if (Time.time < nextAttackTime)
+        public bool CanAttack(Vector3 origin, ZombieTarget zombieTarget)
         {
-            return;
+            if (zombieTarget == null || !zombieTarget.HasTarget)
+                return false;
+
+            return zombieTarget.DistanceFrom(origin) <= attackRange;
         }
 
-        nextAttackTime = Time.time + attackCooldown;
-
-        if (zombieAnimator != null)
+        public void TryAttack(ZombieTarget zombieTarget)
         {
-            zombieAnimator.SetTrigger(attackTriggerHash);
+            if (Time.time < nextAttackTime)
+                return;
+
+            nextAttackTime = Time.time + attackCooldown;
+
+            if (zombieAnimator != null)
+                zombieAnimator.SetTrigger(attackTriggerHash);
+
+            zombieAudio?.PlayAttack();
+
+            var target = zombieTarget != null ? zombieTarget.Target : null;
+            var damageableTarget = target != null ? target.GetComponentInParent<IDamageable>() : null;
+            damageableTarget?.TakeDamage(attackDamage);
         }
-
-        zombieAudio?.PlayAttack();
-
-        Transform target = zombieTarget != null ? zombieTarget.Target : null;
-        IDamageable damageableTarget = target != null ? target.GetComponentInParent<IDamageable>() : null;
-        damageableTarget?.TakeDamage(attackDamage);
     }
 }
+

@@ -1,20 +1,26 @@
-public class ZombieDeadState : IEnemyState
+﻿using WesternShooter.Zombies.StateMachine;
+
+namespace WesternShooter.Zombies.StateMachine.States
 {
-    public void Enter(ZombieStateMachine machine)
+    public class ZombieDeadState : IEnemyState
     {
-        machine.StopMovement();
-        machine.EnableFootsteps(false);
-        machine.SetMovingAnimation(false);
-        machine.TriggerDeathAnimation();
-        machine.PlayDeathAudio();
-        machine.DisableAgent();
+        public void Enter(ZombieStateMachine machine)
+        {
+            machine.StopMovement();
+            machine.EnableFootsteps(false);
+            machine.SetMovingAnimation(false);
+            machine.TriggerDeathAnimation();
+            machine.PlayDeathAudio();
+            machine.DisableAgent();
+        }
+
+        public void Tick(ZombieStateMachine machine, float deltaTime)
+        {
+        }
+
+        public void Exit(ZombieStateMachine machine)
+        {
+        }
     }
 
-    public void Tick(ZombieStateMachine machine, float deltaTime)
-    {
-    }
-
-    public void Exit(ZombieStateMachine machine)
-    {
-    }
 }

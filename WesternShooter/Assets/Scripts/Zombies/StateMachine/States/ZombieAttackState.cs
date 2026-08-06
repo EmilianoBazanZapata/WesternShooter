@@ -1,38 +1,43 @@
-using UnityEngine;
+﻿using UnityEngine;
+using WesternShooter.Zombies.StateMachine;
 
-public class ZombieAttackState : IEnemyState
+namespace WesternShooter.Zombies.StateMachine.States
 {
-    public void Enter(ZombieStateMachine machine)
+    public class ZombieAttackState : IEnemyState
     {
-        machine.StopMovement();
-        machine.SetMovingAnimation(false);
-    }
-
-    public void Tick(ZombieStateMachine machine, float deltaTime)
-    {
-        if (machine.IsDead)
+        public void Enter(ZombieStateMachine machine)
         {
-            machine.SwitchState(machine.DeadState);
-            return;
+            machine.StopMovement();
+            machine.SetMovingAnimation(false);
         }
 
-        if (!machine.HasTarget)
+        public void Tick(ZombieStateMachine machine, float deltaTime)
         {
-            machine.SwitchState(machine.ChaseState);
-            return;
+            if (machine.IsDead)
+            {
+                machine.SwitchState(machine.DeadState);
+                return;
+            }
+
+            if (!machine.HasTarget)
+            {
+                machine.SwitchState(machine.ChaseState);
+                return;
+            }
+
+            if (!machine.CanAttackTarget())
+            {
+                machine.SwitchState(machine.ChaseState);
+                return;
+            }
+
+            machine.RotateTowardsTarget(deltaTime);
+            machine.TryAttack();
         }
 
-        if (!machine.CanAttackTarget())
+        public void Exit(ZombieStateMachine machine)
         {
-            machine.SwitchState(machine.ChaseState);
-            return;
         }
-
-        machine.RotateTowardsTarget(deltaTime);
-        machine.TryAttack();
     }
 
-    public void Exit(ZombieStateMachine machine)
-    {
-    }
 }

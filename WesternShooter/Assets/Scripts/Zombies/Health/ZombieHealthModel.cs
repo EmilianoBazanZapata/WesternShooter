@@ -1,59 +1,59 @@
-using System;
+﻿using System;
 using UnityEngine;
 
-public class ZombieHealthModel
+namespace WesternShooter.Zombies.Health
 {
-    private readonly float maxHealth;
-    private float currentHealth;
-    private bool isDead;
-
-    public ZombieHealthModel(float maxHealth)
+    public class ZombieHealthModel
     {
-        this.maxHealth = maxHealth;
-        currentHealth = maxHealth;
-    }
+        private readonly float maxHealth;
+        private float currentHealth;
+        private bool isDead;
 
-    public float MaxHealth => maxHealth;
-    public float CurrentHealth => currentHealth;
-    public bool IsDead => isDead;
-
-    public event Action<float, float> HealthChanged;
-    public event Action Died;
-
-    public bool ApplyDamage(float damageAmount, out float appliedDamage)
-    {
-        if (isDead)
+        public ZombieHealthModel(float maxHealth)
         {
-            appliedDamage = 0f;
+            this.maxHealth = maxHealth;
+            currentHealth = maxHealth;
+        }
+
+        public float MaxHealth => maxHealth;
+        public float CurrentHealth => currentHealth;
+        public bool IsDead => isDead;
+
+        public event Action<float, float> HealthChanged;
+        public event Action Died;
+
+        public bool ApplyDamage(float damageAmount, out float appliedDamage)
+        {
+            if (isDead)
+            {
+                appliedDamage = 0f;
+                return false;
+            }
+
+            appliedDamage = Mathf.Max(0f, damageAmount);
+            if (appliedDamage <= 0f)
+                return false;
+
+            currentHealth = Mathf.Max(0f, currentHealth - appliedDamage);
+            HealthChanged?.Invoke(currentHealth, maxHealth);
+
+            if (currentHealth <= 0f)
+            {
+                MarkDead();
+                return true;
+            }
+
             return false;
         }
 
-        appliedDamage = Mathf.Max(0f, damageAmount);
-        if (appliedDamage <= 0f)
+        public void MarkDead()
         {
-            return false;
+            if (isDead)
+                return;
+
+            isDead = true;
+            Died?.Invoke();
         }
-
-        currentHealth = Mathf.Max(0f, currentHealth - appliedDamage);
-        HealthChanged?.Invoke(currentHealth, maxHealth);
-
-        if (currentHealth <= 0f)
-        {
-            MarkDead();
-            return true;
-        }
-
-        return false;
     }
 
-    public void MarkDead()
-    {
-        if (isDead)
-        {
-            return;
-        }
-
-        isDead = true;
-        Died?.Invoke();
-    }
 }

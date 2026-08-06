@@ -1,6 +1,12 @@
-public interface IPlayerMovementState
+﻿using WesternShooter.Player.StateMachine;
+
+namespace WesternShooter.Player.StateMachine.States
 {
-    void Enter(PlayerMovementStateMachine machine);
-    void Tick(PlayerMovementStateMachine machine, float deltaTime);
-    void Exit(PlayerMovementStateMachine machine);
+    public interface IPlayerMovementState
+    {
+        void Enter(PlayerMovementStateMachine machine);
+        void Tick(PlayerMovementStateMachine machine, float deltaTime);
+        void Exit(PlayerMovementStateMachine machine);
+    }
+
 }

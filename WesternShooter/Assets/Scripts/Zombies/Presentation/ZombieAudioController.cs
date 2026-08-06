@@ -1,120 +1,98 @@
-using UnityEngine;
+﻿using UnityEngine;
 
-public class ZombieAudioController : MonoBehaviour
+namespace WesternShooter.Zombies.Presentation
 {
-    private const float FootstepIntervalSeconds = 0.45f;
-    private const float MinVelocitySqrForFootstep = 0.05f;
-
-    [Header("Sources")]
-    [SerializeField] private AudioSource footstepSource;
-    [SerializeField] private AudioSource attackSource;
-    [SerializeField] private AudioSource deathSource;
-
-    [Header("Clips")]
-    [SerializeField] private AudioClip[] footstepClips;
-
-    private bool footstepsEnabled;
-    private float nextFootstepTime;
-    private int lastFootstepIndex = -1;
-
-    private void Awake()
+    public class ZombieAudioController : MonoBehaviour
     {
-        if (attackSource == null)
-        {
-            Debug.LogWarning("ZombieAudioController: Attack Source is not assigned.", this);
-        }
-    }
+        private const float FootstepIntervalSeconds = 0.45f;
+        private const float MinVelocitySqrForFootstep = 0.05f;
 
-    public void SetFootstepsEnabled(bool enabled)
-    {
-        footstepsEnabled = enabled;
+        [Header("Sources")]
+        [SerializeField] private AudioSource footstepSource;
+        [SerializeField] private AudioSource attackSource;
+        [SerializeField] private AudioSource deathSource;
 
-        if (!enabled)
-        {
-            nextFootstepTime = 0f;
-        }
-    }
+        [Header("Clips")]
+        [SerializeField] private AudioClip[] footstepClips;
 
-    public void UpdateFootsteps(bool canPlay, float movementVelocitySqr)
-    {
-        if (!footstepsEnabled || !canPlay)
+        private bool footstepsEnabled;
+        private float nextFootstepTime;
+        private int lastFootstepIndex = -1;
+
+        private void Awake()
         {
-            return;
+            if (attackSource == null)
+                Debug.LogWarning("ZombieAudioController: Attack Source is not assigned.", this);
         }
 
-        if (movementVelocitySqr < MinVelocitySqrForFootstep)
+        public void SetFootstepsEnabled(bool enabled)
         {
-            return;
+            footstepsEnabled = enabled;
+
+            if (!enabled)
+                nextFootstepTime = 0f;
         }
 
-        if (Time.time < nextFootstepTime)
+        public void UpdateFootsteps(bool canPlay, float movementVelocitySqr)
         {
-            return;
+            if (!footstepsEnabled || !canPlay)
+                return;
+
+            if (movementVelocitySqr < MinVelocitySqrForFootstep)
+                return;
+
+            if (Time.time < nextFootstepTime)
+                return;
+
+            var clip = GetRandomFootstepClip();
+            if (footstepSource == null || clip == null)
+                return;
+
+            footstepSource.PlayOneShot(clip);
+
+            nextFootstepTime = Time.time + FootstepIntervalSeconds;
         }
 
-        AudioClip clip = GetRandomFootstepClip();
-        if (footstepSource == null || clip == null)
+        public void PlayAttack()
         {
-            return;
+            if (attackSource == null || attackSource.clip == null)
+                return;
+
+            if (attackSource.isPlaying)
+                attackSource.Stop();
+
+            attackSource.Play();
         }
 
-        footstepSource.PlayOneShot(clip);
-
-        nextFootstepTime = Time.time + FootstepIntervalSeconds;
-    }
-
-    public void PlayAttack()
-    {
-        if (attackSource == null || attackSource.clip == null)
+        public void PlayDeath()
         {
-            return;
+            if (deathSource == null || deathSource.clip == null)
+                return;
+
+            if (deathSource.isPlaying)
+                deathSource.Stop();
+
+            deathSource.Play();
         }
 
-        if (attackSource.isPlaying)
+        private AudioClip GetRandomFootstepClip()
         {
-            attackSource.Stop();
-        }
+            if (footstepClips == null || footstepClips.Length == 0)
+                return null;
 
-        attackSource.Play();
-    }
-
-    public void PlayDeath()
-    {
-        if (deathSource == null || deathSource.clip == null)
-        {
-            return;
-        }
-
-        if (deathSource.isPlaying)
-        {
-            deathSource.Stop();
-        }
-
-        deathSource.Play();
-    }
-
-    private AudioClip GetRandomFootstepClip()
-    {
-        if (footstepClips == null || footstepClips.Length == 0)
-        {
-            return null;
-        }
-
-        int index;
-        if (footstepClips.Length == 1)
-        {
-            index = 0;
-        }
-        else
-        {
-            index = Random.Range(0, footstepClips.Length);
-            if (index == lastFootstepIndex)
+            int index;
+            if (footstepClips.Length == 1)
+                index = 0;
+            else
             {
-                index = (index + 1) % footstepClips.Length;
+                index = Random.Range(0, footstepClips.Length);
+                if (index == lastFootstepIndex)
+                    index = (index + 1) % footstepClips.Length;
             }
-        }
 
-        lastFootstepIndex = index;
-        return footstepClips[index];
+            lastFootstepIndex = index;
+            return footstepClips[index];
+        }
     }
+
 }

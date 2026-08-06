@@ -1,49 +1,48 @@
-using UnityEngine;
+﻿using UnityEngine;
+using WesternShooter.Player.StateMachine;
 
-/// <summary>
-/// Coloca este componente en un GameObject con Collider (IsTrigger = true).
-/// Cuando el jugador entra, activa (o detiene) el ZombieSpawnerManager indicado.
-/// </summary>
-[RequireComponent(typeof(Collider))]
-public class SpawnerActivationTrigger : MonoBehaviour
+namespace WesternShooter.Spawning
 {
-    [SerializeField] private ZombieSpawnerManager spawner;
-    [SerializeField] private bool stopOnEnter = false;
-    [SerializeField] private bool triggerOnlyOnce = true;
-
-    private bool hasTriggered;
-
-    private void OnTriggerEnter(Collider other)
+    /// <summary>
+    /// Coloca este componente en un GameObject con Collider (IsTrigger = true).
+    /// Cuando el jugador entra, activa (o detiene) el ZombieSpawnerManager indicado.
+    /// </summary>
+    [RequireComponent(typeof(Collider))]
+    public class SpawnerActivationTrigger : MonoBehaviour
     {
-        if (triggerOnlyOnce && hasTriggered)
-        {
-            return;
-        }
+        [SerializeField] private ZombieSpawnerManager spawner;
+        [SerializeField] private bool stopOnEnter = false;
+        [SerializeField] private bool triggerOnlyOnce = true;
 
-        bool isPlayer = other.GetComponentInParent<PlayerMovementStateMachine>() != null
-                     || other.GetComponentInParent<CharacterController>() != null;
+        private bool hasTriggered;
 
-        if (!isPlayer)
+        private void OnTriggerEnter(Collider other)
         {
-            return;
-        }
+            if (triggerOnlyOnce && hasTriggered)
+                return;
 
-        if (spawner == null)
-        {
-            Debug.LogWarning("[SpawnerActivationTrigger] No ZombieSpawnerManager assigned.", this);
-            return;
-        }
+            var isPlayer = other.GetComponentInParent<PlayerMovementStateMachine>() != null
+                        || other.GetComponentInParent<CharacterController>() != null;
 
-        if (stopOnEnter)
-        {
-            spawner.StopSpawning();
-        }
-        else
-        {
-            spawner.StartSpawning();
-        }
+            if (!isPlayer)
+                return;
 
-        Debug.Log($"[SpawnerActivationTrigger] Spawner '{(stopOnEnter ? "stopped" : "started")}' by '{other.name}'.", this);
-        hasTriggered = true;
+            if (spawner == null)
+            {
+                Debug.LogWarning("[SpawnerActivationTrigger] No ZombieSpawnerManager assigned.", this);
+                return;
+            }
+
+            if (stopOnEnter)
+                spawner.StopSpawning();
+            else
+            {
+                spawner.StartSpawning();
+            }
+
+            Debug.Log($"[SpawnerActivationTrigger] Spawner '{(stopOnEnter ? "stopped" : "started")}' by '{other.name}'.", this);
+            hasTriggered = true;
+        }
     }
+
 }

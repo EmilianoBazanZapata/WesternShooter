@@ -1,114 +1,99 @@
+﻿using UnityEngine.AI;
 using UnityEngine;
-using UnityEngine.AI;
 
-public class ZombieNavigation
+namespace WesternShooter.Zombies.Navigation
 {
-    private readonly NavMeshAgent navMeshAgent;
-    private readonly Transform ownerTransform;
-    private readonly float turnSpeed;
-
-    public ZombieNavigation(NavMeshAgent navMeshAgent, Transform ownerTransform, float turnSpeed)
+    public class ZombieNavigation
     {
-        this.navMeshAgent = navMeshAgent;
-        this.ownerTransform = ownerTransform;
-        this.turnSpeed = turnSpeed;
-    }
+        private readonly NavMeshAgent navMeshAgent;
+        private readonly Transform ownerTransform;
+        private readonly float turnSpeed;
 
-    public bool IsAvailable => navMeshAgent != null && navMeshAgent.enabled;
-
-    public void SetStoppingDistance(float stoppingDistance)
-    {
-        if (navMeshAgent == null)
+        public ZombieNavigation(NavMeshAgent navMeshAgent, Transform ownerTransform, float turnSpeed)
         {
-            return;
+            this.navMeshAgent = navMeshAgent;
+            this.ownerTransform = ownerTransform;
+            this.turnSpeed = turnSpeed;
         }
 
-        navMeshAgent.stoppingDistance = stoppingDistance;
-    }
+        public bool IsAvailable => navMeshAgent != null && navMeshAgent.enabled;
 
-    public void UpdateDestination(Vector3 destination)
-    {
-        if (!IsAvailable)
-        {
-            return;
-        }
-
-        navMeshAgent.SetDestination(destination);
-    }
-
-    public void StopMovement()
-    {
-        if (!IsAvailable)
-        {
-            return;
-        }
-
-        navMeshAgent.isStopped = true;
-        navMeshAgent.ResetPath();
-    }
-
-    public void ResumeMovement()
-    {
-        if (!IsAvailable)
-        {
-            return;
-        }
-
-        navMeshAgent.isStopped = false;
-    }
-
-    public void DisableAgent()
-    {
-        if (!IsAvailable)
-        {
-            return;
-        }
-
-        navMeshAgent.enabled = false;
-    }
-
-    public float CurrentVelocitySqrMagnitude
-    {
-        get
+        public void SetStoppingDistance(float stoppingDistance)
         {
             if (navMeshAgent == null)
+                return;
+
+            navMeshAgent.stoppingDistance = stoppingDistance;
+        }
+
+        public void UpdateDestination(Vector3 destination)
+        {
+            if (!IsAvailable)
+                return;
+
+            navMeshAgent.SetDestination(destination);
+        }
+
+        public void StopMovement()
+        {
+            if (!IsAvailable)
+                return;
+
+            navMeshAgent.isStopped = true;
+            navMeshAgent.ResetPath();
+        }
+
+        public void ResumeMovement()
+        {
+            if (!IsAvailable)
+                return;
+
+            navMeshAgent.isStopped = false;
+        }
+
+        public void DisableAgent()
+        {
+            if (!IsAvailable)
+                return;
+
+            navMeshAgent.enabled = false;
+        }
+
+        public float CurrentVelocitySqrMagnitude
+        {
+            get
             {
-                return 0f;
+                if (navMeshAgent == null)
+                    return 0f;
+
+                return navMeshAgent.velocity.sqrMagnitude;
             }
-
-            return navMeshAgent.velocity.sqrMagnitude;
         }
-    }
 
-    public bool CanPlayFootsteps
-    {
-        get
+        public bool CanPlayFootsteps
         {
-            if (navMeshAgent == null)
+            get
             {
-                return false;
+                if (navMeshAgent == null)
+                    return false;
+
+                return navMeshAgent.enabled && !navMeshAgent.isStopped;
             }
-
-            return navMeshAgent.enabled && !navMeshAgent.isStopped;
         }
-    }
 
-    public void RotateTowards(Vector3 targetPosition, float deltaTime)
-    {
-        if (ownerTransform == null)
+        public void RotateTowards(Vector3 targetPosition, float deltaTime)
         {
-            return;
+            if (ownerTransform == null)
+                return;
+
+            var direction = targetPosition - ownerTransform.position;
+            direction.y = 0f;
+
+            if (direction.sqrMagnitude <= 0.0001f)
+                return;
+
+            var targetRotation = Quaternion.LookRotation(direction.normalized, Vector3.up);
+            ownerTransform.rotation = Quaternion.Slerp(ownerTransform.rotation, targetRotation, turnSpeed * deltaTime);
         }
-
-        Vector3 direction = targetPosition - ownerTransform.position;
-        direction.y = 0f;
-
-        if (direction.sqrMagnitude <= 0.0001f)
-        {
-            return;
-        }
-
-        Quaternion targetRotation = Quaternion.LookRotation(direction.normalized, Vector3.up);
-        ownerTransform.rotation = Quaternion.Slerp(ownerTransform.rotation, targetRotation, turnSpeed * deltaTime);
     }
 }

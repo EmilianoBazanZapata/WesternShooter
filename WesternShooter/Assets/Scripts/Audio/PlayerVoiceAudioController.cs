@@ -1,204 +1,180 @@
-using System;
+﻿using System;
 using UnityEngine;
 
-public class PlayerVoiceAudioController : MonoBehaviour
+namespace WesternShooter.Audio
 {
-    [Serializable]
-    private class VoiceCue
+    public class PlayerVoiceAudioController : MonoBehaviour
     {
-        public string id;
-        public AudioClip defaultClip;
-        public AudioClip[] randomClips;
-        [Min(0f)] public float cooldown = 0f;
-
-        [NonSerialized] public float nextAllowedPlayTime;
-        [NonSerialized] public int lastRandomIndex = -1;
-    }
-
-    [Header("Voice Source")]
-    [SerializeField] private AudioSource voiceSource;
-
-    [Header("Voice Cues")]
-    [SerializeField] private VoiceCue[] cues;
-
-    [Header("Playback")]
-    [SerializeField] private bool stopCurrentClipBeforePlay = true;
-
-    private Coroutine voiceLifecycleCoroutine;
-    private GameAudioManager activeSnapshotManager;
-    private bool hasActiveSnapshotRequest;
-
-    private void Awake()
-    {
-        if (voiceSource == null)
+        [Serializable]
+        private class VoiceCue
         {
-            voiceSource = GetComponent<AudioSource>();
+            public string id;
+            public AudioClip defaultClip;
+            public AudioClip[] randomClips;
+            [Min(0f)] public float cooldown = 0f;
+
+            [NonSerialized] public float nextAllowedPlayTime;
+            [NonSerialized] public int lastRandomIndex = -1;
         }
 
-        if (voiceSource == null)
-        {
-            Debug.LogWarning("[PlayerVoiceAudioController] No AudioSource assigned on player.", this);
-        }
-    }
+        [Header("Voice Source")]
+        [SerializeField] private AudioSource voiceSource;
 
-    public bool TryPlayCue(string cueId)
-    {
-        if (string.IsNullOrWhiteSpace(cueId) || voiceSource == null)
-        {
-            return false;
-        }
+        [Header("Voice Cues")]
+        [SerializeField] private VoiceCue[] cues;
 
-        VoiceCue cue = FindCue(cueId);
-        if (cue == null)
-        {
-            return false;
-        }
+        [Header("Playback")]
+        [SerializeField] private bool stopCurrentClipBeforePlay = true;
 
-        if (Time.time < cue.nextAllowedPlayTime)
+        private Coroutine voiceLifecycleCoroutine;
+        private GameAudioManager activeSnapshotManager;
+        private bool hasActiveSnapshotRequest;
+
+        private void Awake()
         {
-            return false;
+            if (voiceSource == null)
+                voiceSource = GetComponent<AudioSource>();
+
+            if (voiceSource == null)
+                Debug.LogWarning("[PlayerVoiceAudioController] No AudioSource assigned on player.", this);
         }
 
-        AudioClip clipToPlay = GetClip(cue);
-        if (clipToPlay == null)
+        public bool TryPlayCue(string cueId)
         {
-            return false;
+            if (string.IsNullOrWhiteSpace(cueId) || voiceSource == null)
+                return false;
+
+            var cue = FindCue(cueId);
+            if (cue == null)
+                return false;
+
+            if (Time.time < cue.nextAllowedPlayTime)
+                return false;
+
+            var clipToPlay = GetClip(cue);
+            if (clipToPlay == null)
+                return false;
+
+            var manager = GameAudioManager.Instance != null ? GameAudioManager.Instance : FindFirstObjectByType<GameAudioManager>();
+
+            if (stopCurrentClipBeforePlay && voiceSource.isPlaying)
+                voiceSource.Stop();
+
+            AcquireVoiceSnapshotRequest(manager);
+
+            voiceSource.clip = clipToPlay;
+            voiceSource.Play();
+            StartVoiceLifecycleCoroutine();
+
+            cue.nextAllowedPlayTime = Time.time + cue.cooldown;
+            return true;
         }
 
-        GameAudioManager manager = GameAudioManager.Instance
-            ?? FindFirstObjectByType<GameAudioManager>();
-
-        if (stopCurrentClipBeforePlay && voiceSource.isPlaying)
+        private System.Collections.IEnumerator WaitForVoicePlaybackEnd()
         {
-            voiceSource.Stop();
-        }
+            while (voiceSource != null && voiceSource.isPlaying)
+            {
+                yield return null;
+            }
 
-        AcquireVoiceSnapshotRequest(manager);
-
-        voiceSource.clip = clipToPlay;
-        voiceSource.Play();
-        StartVoiceLifecycleCoroutine();
-
-        cue.nextAllowedPlayTime = Time.time + cue.cooldown;
-        return true;
-    }
-
-    private System.Collections.IEnumerator WaitForVoicePlaybackEnd()
-    {
-        while (voiceSource != null && voiceSource.isPlaying)
-        {
-            yield return null;
-        }
-
-        voiceLifecycleCoroutine = null;
-        ReleaseVoiceSnapshotRequest();
-    }
-
-    private void OnDisable()
-    {
-        StopVoiceLifecycleAndReleaseSnapshot();
-    }
-
-    private void OnDestroy()
-    {
-        StopVoiceLifecycleAndReleaseSnapshot();
-    }
-
-    private void StartVoiceLifecycleCoroutine()
-    {
-        if (voiceLifecycleCoroutine != null)
-        {
-            StopCoroutine(voiceLifecycleCoroutine);
             voiceLifecycleCoroutine = null;
+            ReleaseVoiceSnapshotRequest();
         }
 
-        voiceLifecycleCoroutine = StartCoroutine(WaitForVoicePlaybackEnd());
-    }
-
-    private void StopVoiceLifecycleAndReleaseSnapshot()
-    {
-        if (voiceLifecycleCoroutine != null)
+        private void OnDisable()
         {
-            StopCoroutine(voiceLifecycleCoroutine);
-            voiceLifecycleCoroutine = null;
+            StopVoiceLifecycleAndReleaseSnapshot();
         }
 
-        ReleaseVoiceSnapshotRequest();
-    }
-
-    private void AcquireVoiceSnapshotRequest(GameAudioManager manager)
-    {
-        if (hasActiveSnapshotRequest)
+        private void OnDestroy()
         {
-            return;
+            StopVoiceLifecycleAndReleaseSnapshot();
         }
 
-        hasActiveSnapshotRequest = true;
-        activeSnapshotManager = manager;
-        manager?.OnCharacterVoicePlaybackStarted();
-    }
-
-    private void ReleaseVoiceSnapshotRequest()
-    {
-        if (!hasActiveSnapshotRequest)
+        private void StartVoiceLifecycleCoroutine()
         {
-            return;
+            if (voiceLifecycleCoroutine != null)
+            {
+                StopCoroutine(voiceLifecycleCoroutine);
+                voiceLifecycleCoroutine = null;
+            }
+
+            voiceLifecycleCoroutine = StartCoroutine(WaitForVoicePlaybackEnd());
         }
 
-        hasActiveSnapshotRequest = false;
-
-        if (activeSnapshotManager != null)
+        private void StopVoiceLifecycleAndReleaseSnapshot()
         {
-            activeSnapshotManager.OnCharacterVoicePlaybackEnded();
+            if (voiceLifecycleCoroutine != null)
+            {
+                StopCoroutine(voiceLifecycleCoroutine);
+                voiceLifecycleCoroutine = null;
+            }
+
+            ReleaseVoiceSnapshotRequest();
         }
 
-        activeSnapshotManager = null;
-    }
-
-    private VoiceCue FindCue(string cueId)
-    {
-        if (cues == null)
+        private void AcquireVoiceSnapshotRequest(GameAudioManager manager)
         {
+            if (hasActiveSnapshotRequest)
+                return;
+
+            hasActiveSnapshotRequest = true;
+            activeSnapshotManager = manager;
+            manager?.OnCharacterVoicePlaybackStarted();
+        }
+
+        private void ReleaseVoiceSnapshotRequest()
+        {
+            if (!hasActiveSnapshotRequest)
+                return;
+
+            hasActiveSnapshotRequest = false;
+
+            if (activeSnapshotManager != null)
+                activeSnapshotManager.OnCharacterVoicePlaybackEnded();
+
+            activeSnapshotManager = null;
+        }
+
+        private VoiceCue FindCue(string cueId)
+        {
+            if (cues == null)
+                return null;
+
+            for (var i = 0; i < cues.Length; i++)
+            {
+                var cue = cues[i];
+                if (cue == null || string.IsNullOrWhiteSpace(cue.id))
+                    continue;
+
+                if (string.Equals(cue.id, cueId, StringComparison.OrdinalIgnoreCase))
+                    return cue;
+            }
+
             return null;
         }
 
-        for (int i = 0; i < cues.Length; i++)
+        private AudioClip GetClip(VoiceCue cue)
         {
-            VoiceCue cue = cues[i];
-            if (cue == null || string.IsNullOrWhiteSpace(cue.id))
+            if (cue.randomClips != null && cue.randomClips.Length > 0)
             {
-                continue;
+                if (cue.randomClips.Length == 1)
+                {
+                    cue.lastRandomIndex = 0;
+                    return cue.randomClips[0];
+                }
+
+                var index = UnityEngine.Random.Range(0, cue.randomClips.Length);
+                if (index == cue.lastRandomIndex)
+                    index = (index + 1) % cue.randomClips.Length;
+
+                cue.lastRandomIndex = index;
+                return cue.randomClips[index];
             }
 
-            if (string.Equals(cue.id, cueId, StringComparison.OrdinalIgnoreCase))
-            {
-                return cue;
-            }
+            return cue.defaultClip;
         }
-
-        return null;
     }
 
-    private AudioClip GetClip(VoiceCue cue)
-    {
-        if (cue.randomClips != null && cue.randomClips.Length > 0)
-        {
-            if (cue.randomClips.Length == 1)
-            {
-                cue.lastRandomIndex = 0;
-                return cue.randomClips[0];
-            }
-
-            int index = UnityEngine.Random.Range(0, cue.randomClips.Length);
-            if (index == cue.lastRandomIndex)
-            {
-                index = (index + 1) % cue.randomClips.Length;
-            }
-
-            cue.lastRandomIndex = index;
-            return cue.randomClips[index];
-        }
-
-        return cue.defaultClip;
-    }
 }
+

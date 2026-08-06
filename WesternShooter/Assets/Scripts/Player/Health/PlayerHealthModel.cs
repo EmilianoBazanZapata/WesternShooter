@@ -1,52 +1,53 @@
-using System;
+﻿using System;
 
-public class PlayerHealthModel
+namespace WesternShooter.Player.Health
 {
-    private readonly float maxHealth;
-    private float currentHealth;
-    private bool isDead;
-
-    public PlayerHealthModel(float maxHealth)
+    public class PlayerHealthModel
     {
-        this.maxHealth = maxHealth;
-        currentHealth = maxHealth;
-    }
+        private readonly float maxHealth;
+        private float currentHealth;
+        private bool isDead;
 
-    public float MaxHealth => maxHealth;
-    public float CurrentHealth => currentHealth;
-    public bool IsDead => isDead;
-
-    public event Action<float, float> HealthChanged;
-    public event Action Died;
-
-    public void ApplyDamage(float damageAmount)
-    {
-        if (isDead)
+        public PlayerHealthModel(float maxHealth)
         {
-            return;
+            this.maxHealth = maxHealth;
+            currentHealth = maxHealth;
         }
 
-        currentHealth -= damageAmount;
+        public float MaxHealth => maxHealth;
+        public float CurrentHealth => currentHealth;
+        public bool IsDead => isDead;
 
-        if (currentHealth <= 0f)
+        public event Action<float, float> HealthChanged;
+        public event Action Died;
+
+        public void ApplyDamage(float damageAmount)
         {
-            currentHealth = 0f;
+            if (isDead)
+                return;
+
+            currentHealth -= damageAmount;
+
+            if (currentHealth <= 0f)
+            {
+                currentHealth = 0f;
+                HealthChanged?.Invoke(currentHealth, maxHealth);
+                MarkDead();
+                return;
+            }
+
             HealthChanged?.Invoke(currentHealth, maxHealth);
-            MarkDead();
-            return;
         }
 
-        HealthChanged?.Invoke(currentHealth, maxHealth);
-    }
-
-    public void MarkDead()
-    {
-        if (isDead)
+        public void MarkDead()
         {
-            return;
-        }
+            if (isDead)
+                return;
 
-        isDead = true;
-        Died?.Invoke();
+            isDead = true;
+            Died?.Invoke();
+        }
     }
+
 }
+

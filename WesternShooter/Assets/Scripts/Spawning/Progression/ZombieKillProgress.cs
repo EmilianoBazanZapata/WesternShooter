@@ -1,40 +1,40 @@
-using System;
+﻿using System;
 
-public class ZombieKillProgress
+namespace WesternShooter.Spawning.Progression
 {
-    private int totalKilled;
-    private int victoryKillThreshold;
-    private bool hasRaisedVictoryThreshold;
-
-    public int TotalKilled => totalKilled;
-    public int VictoryKillThreshold => victoryKillThreshold;
-
-    public event Action<int> TotalKilledChanged;
-    public event Action<int> VictoryThresholdReached;
-
-    public void Configure(int configuredVictoryKillThreshold)
+    public class ZombieKillProgress
     {
-        victoryKillThreshold = configuredVictoryKillThreshold;
-        totalKilled = 0;
-        hasRaisedVictoryThreshold = false;
-    }
+        private int totalKilled;
+        private int victoryKillThreshold;
+        private bool hasRaisedVictoryThreshold;
 
-    public void RegisterKill()
-    {
-        totalKilled++;
-        TotalKilledChanged?.Invoke(totalKilled);
+        public int TotalKilled => totalKilled;
+        public int VictoryKillThreshold => victoryKillThreshold;
 
-        if (hasRaisedVictoryThreshold)
+        public event Action<int> TotalKilledChanged;
+        public event Action<int> VictoryThresholdReached;
+
+        public void Configure(int configuredVictoryKillThreshold)
         {
-            return;
+            victoryKillThreshold = configuredVictoryKillThreshold;
+            totalKilled = 0;
+            hasRaisedVictoryThreshold = false;
         }
 
-        if (victoryKillThreshold <= 0 || totalKilled < victoryKillThreshold)
+        public void RegisterKill()
         {
-            return;
-        }
+            totalKilled++;
+            TotalKilledChanged?.Invoke(totalKilled);
 
-        hasRaisedVictoryThreshold = true;
-        VictoryThresholdReached?.Invoke(totalKilled);
+            if (hasRaisedVictoryThreshold)
+                return;
+
+            if (victoryKillThreshold <= 0 || totalKilled < victoryKillThreshold)
+                return;
+
+            hasRaisedVictoryThreshold = true;
+            VictoryThresholdReached?.Invoke(totalKilled);
+        }
     }
 }
+

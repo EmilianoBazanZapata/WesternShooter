@@ -1,6 +1,12 @@
-public interface IEnemyState
+﻿using WesternShooter.Zombies.StateMachine;
+
+namespace WesternShooter.Zombies.StateMachine.States
 {
-    void Enter(ZombieStateMachine machine);
-    void Tick(ZombieStateMachine machine, float deltaTime);
-    void Exit(ZombieStateMachine machine);
+    public interface IEnemyState
+    {
+        void Enter(ZombieStateMachine machine);
+        void Tick(ZombieStateMachine machine, float deltaTime);
+        void Exit(ZombieStateMachine machine);
+    }
+
 }

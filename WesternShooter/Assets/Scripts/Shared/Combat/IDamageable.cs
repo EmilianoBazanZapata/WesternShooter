@@ -1,4 +1,8 @@
-public interface IDamageable
+﻿namespace WesternShooter.Shared.Combat
 {
-    void TakeDamage(float damageAmount);
+    public interface IDamageable
+    {
+        void TakeDamage(float damageAmount);
+    }
+
 }
