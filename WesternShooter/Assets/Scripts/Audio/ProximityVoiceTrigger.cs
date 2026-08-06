@@ -1,35 +1,32 @@
-using UnityEngine;
+﻿using UnityEngine;
 
-[RequireComponent(typeof(Collider))]
-public class ProximityVoiceTrigger : MonoBehaviour
+namespace WesternShooter.Audio
 {
-    [SerializeField] private string voiceCueId;
-
-    private bool hasPlayed;
-
-    private void Reset()
+    [RequireComponent(typeof(Collider))]
+    public class ProximityVoiceTrigger : MonoBehaviour
     {
-        GetComponent<Collider>().isTrigger = true;
-    }
+        [SerializeField] private string voiceCueId;
 
-    private void OnTriggerEnter(Collider other)
-    {
-        if (hasPlayed)
+        private bool hasPlayed;
+
+        private void Reset()
         {
-            return;
+            GetComponent<Collider>().isTrigger = true;
         }
 
-        PlayerVoiceAudioController playerVoice =
-            other.GetComponentInParent<PlayerVoiceAudioController>();
-
-        if (playerVoice == null)
+        private void OnTriggerEnter(Collider other)
         {
-            return;
-        }
+            if (hasPlayed)
+                return;
 
-        if (playerVoice.TryPlayCue(voiceCueId))
-        {
-            hasPlayed = true;
+            var playerVoice =
+                other.GetComponentInParent<PlayerVoiceAudioController>();
+
+            if (playerVoice == null)
+                return;
+
+            if (playerVoice.TryPlayCue(voiceCueId))
+                hasPlayed = true;
         }
     }
 }

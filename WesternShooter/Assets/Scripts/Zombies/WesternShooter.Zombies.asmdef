@@ -1,0 +1,17 @@
+{
+  "name": "WesternShooter.Zombies",
+  "rootNamespace": "WesternShooter.Zombies",
+  "references": [
+    "WesternShooter.Shared",
+    "WesternShooter.Player"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

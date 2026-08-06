@@ -1,125 +1,105 @@
-using System.Collections;
-using UnityEngine;
-using UnityEngine.SceneManagement;
+﻿using System.Collections;
 using UnityEngine.InputSystem;
+using UnityEngine.SceneManagement;
+using UnityEngine;
 
-public enum MainMenuState
+namespace WesternShooter.UI
 {
-    Menu,
-    Controls
-}
-
-public class MainMenuFlowController : MonoBehaviour
-{
-    [Header("Scenes")]
-    [SerializeField] private string levelSceneName = "Level";
-
-    [Header("UI")]
-    [SerializeField] private GameObject menuUiRoot;
-    [SerializeField] private GameObject controlsUiRoot;
-
-    private Coroutine loadingRoutine;
-
-    public MainMenuState CurrentState { get; private set; } = MainMenuState.Menu;
-
-    private void Start()
+    public class MainMenuFlowController : MonoBehaviour
     {
-        SetState(MainMenuState.Menu);
-    }
+        [Header("Scenes")]
+        [SerializeField] private string levelSceneName = "Level";
 
-    private void Update()
-    {
-        if (Keyboard.current == null)
-        {
-            return;
-        }
+        [Header("UI")]
+        [SerializeField] private GameObject menuUiRoot;
+        [SerializeField] private GameObject controlsUiRoot;
 
-        if (Keyboard.current.escapeKey.wasPressedThisFrame && CurrentState == MainMenuState.Controls)
+        private Coroutine loadingRoutine;
+
+        public MainMenuState CurrentState { get; private set; } = MainMenuState.Menu;
+
+        private void Start()
         {
             SetState(MainMenuState.Menu);
         }
-    }
 
-    public void OnStartPressed()
-    {
-        if (loadingRoutine != null)
+        private void Update()
         {
-            return;
+            if (Keyboard.current == null)
+                return;
+
+            if (Keyboard.current.escapeKey.wasPressedThisFrame && CurrentState == MainMenuState.Controls)
+                SetState(MainMenuState.Menu);
         }
 
-        loadingRoutine = StartCoroutine(LoadLevelAsync());
-    }
+        public void OnStartPressed()
+        {
+            if (loadingRoutine != null)
+                return;
 
-    public void OnControlsPressed()
-    {
-        SetState(MainMenuState.Controls);
-    }
+            loadingRoutine = StartCoroutine(LoadLevelAsync());
+        }
 
-    public void OnBackFromControlsPressed()
-    {
-        SetState(MainMenuState.Menu);
-    }
+        public void OnControlsPressed() => SetState(MainMenuState.Controls);
 
-    public void OnExitPressed()
-    {
+        public void OnBackFromControlsPressed() => SetState(MainMenuState.Menu);
+
+        public void OnExitPressed()
+        {
 #if UNITY_EDITOR
-        UnityEditor.EditorApplication.isPlaying = false;
+            UnityEditor.EditorApplication.isPlaying = false;
 #else
-        Application.Quit();
+            Application.Quit();
 #endif
-    }
-
-    private IEnumerator LoadLevelAsync()
-    {
-        Debug.Log($"[MainMenu] Starting async load for scene '{levelSceneName}'.");
-
-        AsyncOperation loadOperation = SceneManager.LoadSceneAsync(levelSceneName);
-        if (loadOperation == null)
-        {
-            Debug.LogError($"[MainMenu] Could not start loading scene '{levelSceneName}'. Check Build Settings.");
-            loadingRoutine = null;
-            yield break;
         }
 
-        loadOperation.allowSceneActivation = false;
-
-        int lastLoggedRemainingPercent = -1;
-
-        while (!loadOperation.isDone)
+        private IEnumerator LoadLevelAsync()
         {
-            float normalizedProgress = Mathf.Clamp01(loadOperation.progress / 0.9f);
-            int remainingPercent = Mathf.Clamp(Mathf.CeilToInt((1f - normalizedProgress) * 100f), 0, 100);
+            Debug.Log($"[MainMenu] Starting async load for scene '{levelSceneName}'.");
 
-            if (remainingPercent != lastLoggedRemainingPercent)
+            var loadOperation = SceneManager.LoadSceneAsync(levelSceneName);
+            if (loadOperation == null)
             {
-                Debug.Log($"[MainMenu] Loading '{levelSceneName}'... remaining {remainingPercent}%");
-                lastLoggedRemainingPercent = remainingPercent;
+                Debug.LogError($"[MainMenu] Could not start loading scene '{levelSceneName}'. Check Build Settings.");
+                loadingRoutine = null;
+                yield break;
             }
 
-            if (loadOperation.progress >= 0.9f)
+            loadOperation.allowSceneActivation = false;
+
+            var lastLoggedRemainingPercent = -1;
+
+            while (!loadOperation.isDone)
             {
-                loadOperation.allowSceneActivation = true;
+                var normalizedProgress = Mathf.Clamp01(loadOperation.progress / 0.9f);
+                var remainingPercent = Mathf.Clamp(Mathf.CeilToInt((1f - normalizedProgress) * 100f), 0, 100);
+
+                if (remainingPercent != lastLoggedRemainingPercent)
+                {
+                    Debug.Log($"[MainMenu] Loading '{levelSceneName}'... remaining {remainingPercent}%");
+                    lastLoggedRemainingPercent = remainingPercent;
+                }
+
+                if (loadOperation.progress >= 0.9f)
+                    loadOperation.allowSceneActivation = true;
+
+                yield return null;
             }
+        }
 
-            yield return null;
+        private void SetState(MainMenuState newState)
+        {
+            CurrentState = newState;
+
+            var showMenu = CurrentState == MainMenuState.Menu;
+            var showControls = CurrentState == MainMenuState.Controls;
+
+            if (menuUiRoot != null)
+                menuUiRoot.SetActive(showMenu);
+
+            if (controlsUiRoot != null)
+                controlsUiRoot.SetActive(showControls);
         }
     }
 
-    private void SetState(MainMenuState newState)
-    {
-        CurrentState = newState;
-
-        bool showMenu = CurrentState == MainMenuState.Menu;
-        bool showControls = CurrentState == MainMenuState.Controls;
-
-        if (menuUiRoot != null)
-        {
-            menuUiRoot.SetActive(showMenu);
-        }
-
-        if (controlsUiRoot != null)
-        {
-            controlsUiRoot.SetActive(showControls);
-        }
-    }
 }

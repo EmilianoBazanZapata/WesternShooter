@@ -1,0 +1,19 @@
+{
+  "name": "WesternShooter.GameFlow",
+  "rootNamespace": "WesternShooter.GameFlow",
+  "references": [
+    "WesternShooter.Player",
+    "WesternShooter.Spawning",
+    "WesternShooter.Audio",
+    "Unity.InputSystem"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

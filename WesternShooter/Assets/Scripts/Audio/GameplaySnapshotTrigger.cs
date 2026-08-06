@@ -1,84 +1,85 @@
-using UnityEngine;
+﻿using UnityEngine;
+using WesternShooter.Spawning;
 
-public enum GameplaySnapshotType
+namespace WesternShooter.Audio
 {
-    Peaceful,
-    Wanted
-}
-
-[RequireComponent(typeof(Collider))]
-public class GameplaySnapshotTrigger : MonoBehaviour
-{
-    [SerializeField] private GameplaySnapshotType snapshotType = GameplaySnapshotType.Wanted;
-    [SerializeField] private bool triggerOnlyOnce = true;
-    [SerializeField] private bool startSpawnerOnWanted = true;
-    [SerializeField] private ZombieSpawnerManager wantedSpawner;
-
-    private bool hasTriggered;
-
-    private void Reset()
+    public enum GameplaySnapshotType
     {
-        Collider areaCollider = GetComponent<Collider>();
-        areaCollider.isTrigger = true;
+        Peaceful,
+        Wanted
     }
 
-    private void Awake()
+    [RequireComponent(typeof(Collider))]
+    public class GameplaySnapshotTrigger : MonoBehaviour
     {
-        Collider areaCollider = GetComponent<Collider>();
-        areaCollider.isTrigger = true;
-    }
+        [SerializeField] private GameplaySnapshotType snapshotType = GameplaySnapshotType.Wanted;
+        [SerializeField] private bool triggerOnlyOnce = true;
+        [SerializeField] private bool startSpawnerOnWanted = true;
+        [SerializeField] private ZombieSpawnerManager wantedSpawner;
 
-    private void OnTriggerEnter(Collider other)
-    {
-        if (triggerOnlyOnce && hasTriggered)
+        private bool hasTriggered;
+
+        private void Reset()
         {
-            return;
+            var areaCollider = GetComponent<Collider>();
+            areaCollider.isTrigger = true;
         }
 
-        // Player detection: CharacterController is exclusive to the player.
-        // GetComponentInParent also checks the collider's own GameObject.
-        bool isPlayer = other.GetComponentInParent<PlayerMovementStateMachine>() != null
-                     || other.GetComponentInParent<CharacterController>() != null;
-
-        if (!isPlayer)
+        private void Awake()
         {
-            return;
+            var areaCollider = GetComponent<Collider>();
+            areaCollider.isTrigger = true;
         }
 
-        GameAudioManager manager = GameAudioManager.Instance
-            ?? FindFirstObjectByType<GameAudioManager>();
-
-        if (manager == null)
+        private void OnTriggerEnter(Collider other)
         {
-            Debug.LogWarning($"[GameplaySnapshotTrigger] No GameAudioManager found in scene.", this);
-            return;
-        }
+            if (triggerOnlyOnce && hasTriggered)
+                return;
 
-        if (snapshotType == GameplaySnapshotType.Peaceful)
-        {
-            manager.OnGameplayAreaPeacefulTriggered();
-        }
-        else
-        {
-            manager.OnGameplayAreaWantedTriggered();
+            // Player detection: CharacterController is treated as player-owned in this project.
+            var isPlayer = other.GetComponentInParent<CharacterController>() != null;
 
-            if (startSpawnerOnWanted)
+            if (!isPlayer)
+                return;
+
+            var manager = GameAudioManager.Instance
+                ?? FindFirstObjectByType<GameAudioManager>();
+
+            if (manager == null)
             {
-                ZombieSpawnerManager spawner = wantedSpawner
-                    ?? FindFirstObjectByType<ZombieSpawnerManager>();
+                Debug.LogWarning($"[GameplaySnapshotTrigger] No GameAudioManager found in scene.", this);
+                return;
+            }
 
-                if (spawner == null)
+            if (snapshotType == GameplaySnapshotType.Peaceful)
+            {
+                manager.OnGameplayAreaPeacefulTriggered();
+            }
+            else
+            {
+                manager.OnGameplayAreaWantedTriggered();
+
+                if (startSpawnerOnWanted)
                 {
-                    Debug.LogWarning("[GameplaySnapshotTrigger] No ZombieSpawnerManager found for wanted trigger.", this);
-                }
-                else
-                {
-                    spawner.StartSpawning();
+                    var spawner = wantedSpawner
+                        ?? FindFirstObjectByType<ZombieSpawnerManager>();
+
+                    if (spawner == null)
+                    {
+                        Debug.LogWarning("[GameplaySnapshotTrigger] No ZombieSpawnerManager found for wanted trigger.", this);
+                    }
+                    else
+                    {
+                        spawner.StartSpawning();
+                    }
                 }
             }
-        }
 
-        Debug.Log($"[GameplaySnapshotTrigger] Snapshot '{snapshotType}' triggered by '{other.name}'.", this);
-        hasTriggered = true;
+            Debug.Log($"[GameplaySnapshotTrigger] Snapshot '{snapshotType}' triggered by '{other.name}'.", this);
+            hasTriggered = true;
+        }
     }
+
 }
+
+

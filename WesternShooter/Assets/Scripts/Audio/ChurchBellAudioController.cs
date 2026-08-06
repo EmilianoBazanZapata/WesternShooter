@@ -1,54 +1,49 @@
-using UnityEngine;
+﻿using UnityEngine;
 
-public class ChurchBellAudioController : MonoBehaviour
+namespace WesternShooter.Audio
 {
-    [SerializeField] private AudioSource bellSource;
-    [SerializeField] private float ringIntervalSeconds = 180f;
-
-    private float nextRingTime;
-
-    private void Awake()
+    public class ChurchBellAudioController : MonoBehaviour
     {
-        if (bellSource == null)
+        [SerializeField] private AudioSource bellSource;
+        [SerializeField] private float ringIntervalSeconds = 180f;
+
+        private float nextRingTime;
+
+        private void Awake()
         {
-            bellSource = GetComponent<AudioSource>();
+            if (bellSource == null)
+                bellSource = GetComponent<AudioSource>();
+
+            if (bellSource == null)
+            {
+                enabled = false;
+                return;
+            }
+
+            bellSource.playOnAwake = false;
+            bellSource.loop = false;
         }
 
-        if (bellSource == null)
+        private void Start()
         {
-            Debug.LogWarning("ChurchBellAudioController: assign an AudioSource with a bell clip.", this);
-            enabled = false;
-            return;
+            RingBell();
+            nextRingTime = Time.time + Mathf.Max(0.1f, ringIntervalSeconds);
         }
 
-        bellSource.playOnAwake = false;
-        bellSource.loop = false;
-    }
-
-    private void Start()
-    {
-        RingBell();
-        nextRingTime = Time.time + Mathf.Max(0.1f, ringIntervalSeconds);
-    }
-
-    private void Update()
-    {
-        if (bellSource == null || bellSource.clip == null)
+        private void Update()
         {
-            return;
+            if (bellSource == null || bellSource.clip == null)
+                return;
+
+            if (Time.time < nextRingTime)
+                return;
+
+            RingBell();
+            nextRingTime = Time.time + Mathf.Max(0.1f, ringIntervalSeconds);
         }
 
-        if (Time.time < nextRingTime)
-        {
-            return;
-        }
-
-        RingBell();
-        nextRingTime = Time.time + Mathf.Max(0.1f, ringIntervalSeconds);
+        private void RingBell() => bellSource.Play();
     }
 
-    private void RingBell()
-    {
-        bellSource.Play();
-    }
 }
+

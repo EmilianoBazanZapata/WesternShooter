@@ -1,8 +1,12 @@
-public enum AudioBusType
+﻿namespace WesternShooter.Audio
 {
-    Master,
-    Music,
-    Sfx,
-    Voice,
-    Ambience
+    public enum AudioBusType
+    {
+        Master,
+        Music,
+        Sfx,
+        Voice,
+        Ambience
+    }
+
 }
