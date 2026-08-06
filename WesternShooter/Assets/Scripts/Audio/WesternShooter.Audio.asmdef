@@ -1,0 +1,16 @@
+{
+  "name": "WesternShooter.Audio",
+  "rootNamespace": "WesternShooter.Audio",
+  "references": [
+    "WesternShooter.Spawning"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

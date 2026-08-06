@@ -1,5 +1,4 @@
 ﻿using UnityEngine;
-using WesternShooter.Player.StateMachine;
 using WesternShooter.Spawning;
 
 namespace WesternShooter.Audio
@@ -37,10 +36,8 @@ namespace WesternShooter.Audio
             if (triggerOnlyOnce && hasTriggered)
                 return;
 
-            // Player detection: CharacterController is exclusive to the player.
-            // GetComponentInParent also checks the collider's own GameObject.
-            var isPlayer = other.GetComponentInParent<PlayerMovementStateMachine>() != null
-                        || other.GetComponentInParent<CharacterController>() != null;
+            // Player detection: CharacterController is treated as player-owned in this project.
+            var isPlayer = other.GetComponentInParent<CharacterController>() != null;
 
             if (!isPlayer)
                 return;

@@ -1,0 +1,17 @@
+{
+  "name": "WesternShooter.Camera",
+  "rootNamespace": "WesternShooter.Camera",
+  "references": [
+    "WesternShooter.Player",
+    "Unity.InputSystem"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

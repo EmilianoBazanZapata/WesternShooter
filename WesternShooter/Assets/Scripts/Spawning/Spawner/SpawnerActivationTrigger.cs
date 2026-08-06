@@ -1,5 +1,4 @@
 ﻿using UnityEngine;
-using WesternShooter.Player.StateMachine;
 
 namespace WesternShooter.Spawning
 {
@@ -21,8 +20,7 @@ namespace WesternShooter.Spawning
             if (triggerOnlyOnce && hasTriggered)
                 return;
 
-            var isPlayer = other.GetComponentInParent<PlayerMovementStateMachine>() != null
-                        || other.GetComponentInParent<CharacterController>() != null;
+            var isPlayer = other.GetComponentInParent<CharacterController>() != null;
 
             if (!isPlayer)
                 return;
