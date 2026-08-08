@@ -49,10 +49,16 @@ namespace WesternShooter.UI
         {
             ResolveReferences();
             SubscribeToEvents();
+            TrySubscribeKillProgress();
 
             RefreshHealthUi();
-            RefreshEnemiesUi();
             RefreshCrosshairUi();
+        }
+
+        private void Start()
+        {
+            ResolveReferences();
+            TrySubscribeKillProgress();
         }
 
         private void OnDisable()
@@ -71,7 +77,6 @@ namespace WesternShooter.UI
             if (gameManager == null)
                 gameManager = FindFirstObjectByType<GameManager>();
 
-            killProgress = zombieSpawner != null ? zombieSpawner.KillProgress : null;
             if (gameManager != null)
                 currentGameState = gameManager.CurrentState;
         }
@@ -86,12 +91,6 @@ namespace WesternShooter.UI
                 player.Died += OnPlayerDied;
                 player.AimChanged -= OnAimChanged;
                 player.AimChanged += OnAimChanged;
-            }
-
-            if (killProgress != null)
-            {
-                killProgress.TotalKilledChanged -= OnTotalKilledChanged;
-                killProgress.TotalKilledChanged += OnTotalKilledChanged;
             }
 
             if (gameManager != null)
@@ -113,12 +112,40 @@ namespace WesternShooter.UI
             if (killProgress != null)
             {
                 killProgress.TotalKilledChanged -= OnTotalKilledChanged;
+                killProgress = null;
             }
 
             if (gameManager != null)
             {
                 gameManager.GameStateChanged -= OnGameStateChanged;
             }
+        }
+
+        private void TrySubscribeKillProgress()
+        {
+            var resolvedKillProgress = zombieSpawner != null
+                ? zombieSpawner.KillProgress
+                : null;
+
+            if (ReferenceEquals(killProgress, resolvedKillProgress))
+            {
+                RefreshEnemiesUi(killProgress != null ? killProgress.TotalKilled : 0);
+                return;
+            }
+
+            if (killProgress != null)
+                killProgress.TotalKilledChanged -= OnTotalKilledChanged;
+
+            killProgress = resolvedKillProgress;
+
+            if (killProgress == null)
+            {
+                RefreshEnemiesUi(0);
+                return;
+            }
+
+            killProgress.TotalKilledChanged += OnTotalKilledChanged;
+            RefreshEnemiesUi(killProgress.TotalKilled);
         }
 
         private void OnPlayerHealthChanged(float currentHealth, float maxHealth)
