@@ -195,34 +195,22 @@ El plan completo está en [`WesternShooter_Modular_Refactor_Plan.md`](WesternSho
 
 El juego se prueba manualmente en Play Mode: movimiento, apuntado, disparo, spawn, actualización del HUD, pausa y opciones, victoria y derrota, y cada transición de audio.
 
-## Cómo ejecutar el proyecto
+## Recuperación de clonación limpia — 22 de octubre de 2026
 
-### Requisitos
+Las escenas originales MainMenu y Level no están publicadas. Importar Synty no recupera su configuración. Las instrucciones anteriores sobre esas escenas describen el proyecto original y no constituyen una instalación reproducible.
 
-- Unity Editor **6000.0.72f1**
-- Los paquetes de arte y UI de terceros listados en [Créditos](#créditos-y-assets-de-terceros), que no están incluidos en este repositorio
+1. Cloná el repositorio y agregá en Unity Hub la carpeta interna `WesternShooter/` con Unity **6000.0.72f1**.
+2. Dejá resolver `Packages/manifest.json`, reconstruido a partir del código; no es el manifiesto original. La resolución y compilación aún deben comprobarse en Unity.
+3. Ejecutá **WesternShooter > Create standalone smoke demo**. Crea `Assets/StandaloneGenerated/StandaloneDemo.unity` con primitivas y tonos propios y la agrega al build. No sobrescribe una carpeta generada existente.
+4. Abrí esa escena y probá Play. WASD/Shift mueve, botón derecho + izquierdo daña cubos; H daña al jugador; 1/2 cambia mezcla/música, 3/4 reproduce tonos de resultado, V simula una solicitud de voz y Escape pausa. Cámara fija, sin prueba de IA/NavMesh ni gameplay completo.
+5. Tras resolver paquetes correctamente, versioná el `Packages/packages-lock.json` generado por Unity y comprobá otra clonación limpia. Luego verificá Build Profiles, compilá y ejecutá el Player.
 
-### Ejecutar en local
+La alternativa usa Built-in porque faltan los assets de configuración URP. Conserva los ocho módulos y sus sistemas de audio; agrega una composición separada de prueba. No usa prefabs comerciales ni grabaciones existentes. La lista inicial de escenas queda vacía hasta ejecutar el generador.
 
-```bash
-git clone https://github.com/EmilianoBazanZapata/WesternShooter.git
-```
+**Comprobado:** inspección estática de configuración, código, GUIDs y mixer. **Pendiente:** restauración UPM completa, compilación, generación de escena, Play Mode, audio y build en Unity. No se afirma que el juego original fue restaurado.
 
-1. Importar los paquetes de terceros en `Assets/Packages/`.
-2. En Unity Hub, elegir **Add project from disk** y seleccionar la carpeta `WesternShooter/`.
-3. Abrir el proyecto con Unity **6000.0.72f1** y esperar a que restaure los paquetes.
-4. Abrir la escena `MainMenu` y presionar **Play**.
+Los permisos de redistribución de prefabs, animaciones y grabaciones ya publicados siguen sin acreditarse. Se conservaron sin cambios para evitar pérdida de contenido, pero el repositorio completo no queda aprobado para redistribución. No subas los packs comerciales a Git. Consultá el [informe detallado](docs/clean-clone-recovery.md) y el [inventario de GUIDs pendientes](docs/unresolved-asset-guids.json).
 
-<!-- TODO: mover MainMenu.unity y Level.unity a Assets/Scenes/ y commitearlas; hoy están dentro de la carpeta ignorada Assets/Packages/ -->
-
-## Build
-
-| Índice | Escena     | Función                     |
-| ------ | ---------- | --------------------------- |
-| 0      | `MainMenu` | Menú principal y controles  |
-| 1      | `Level`    | Gameplay y demo de audio    |
-
-Abrir **File > Build Profiles**, verificar que las dos escenas estén habilitadas en ese orden, elegir una plataforma de escritorio y presionar **Build**.
 
 ## Alcance actual y próximos pasos
 

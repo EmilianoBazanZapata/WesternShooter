@@ -1,0 +1,20 @@
+{
+  "Assets/Readme.asset": [
+    "727a75301c3d24613a3ebcec4a24c2c8",
+    "fcf7219bab7fe46a1ad266029b2fee19"
+  ],
+  "Assets/Characters/Zombie/Zombie.prefab": [
+    "4837235d67e136e4b883adb2bafc73e8",
+    "66a8a6e30880caa48908020cf5388217"
+  ],
+  "Assets/Characters/Player/SM_BadGuy.prefab": [
+    "06d5955ec0ad0a647971bfeea7cd9f8a",
+    "4837235d67e136e4b883adb2bafc73e8",
+    "66a8a6e30880caa48908020cf5388217"
+  ],
+  "Assets/Characters/Player/SM_Prop_Sack_01 (2).prefab": [
+    "66a8a6e30880caa48908020cf5388217",
+    "711622cd73e26a647b2d23387b1f05e0",
+    "fbeb74b4e3da95745b6a12a3c307dc09"
+  ]
+}

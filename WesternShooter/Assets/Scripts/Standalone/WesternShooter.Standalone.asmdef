@@ -1,0 +1,10 @@
+{
+  "name": "WesternShooter.Standalone",
+  "rootNamespace": "WesternShooter.Standalone",
+  "references": [
+    "WesternShooter.Player",
+    "WesternShooter.Zombies",
+    "WesternShooter.Audio",
+    "Unity.InputSystem"
+  ]
+}
