@@ -1,0 +1,11 @@
+{
+  "name": "WesternShooter.Standalone.Editor",
+  "references": [
+    "WesternShooter.Standalone",
+    "WesternShooter.Player",
+    "WesternShooter.Audio"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ]
+}

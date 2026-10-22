@@ -195,34 +195,21 @@ The full plan is in [`WesternShooter_Modular_Refactor_Plan.md`](WesternShooter/W
 
 The game is tested manually in Play Mode: movement, aiming, shooting, spawning, HUD updates, pause and options, victory and defeat, and every audio transition.
 
-## Getting started
+## Getting started — clean clone
 
-### Requirements
+Use Unity **6000.0.72f1**. Clone this repository, then add the nested `WesternShooter/` project folder in Unity Hub. Let Unity resolve the pinned, reconstructed `Packages/manifest.json` and compile scripts.
 
-- Unity Editor **6000.0.72f1**
-- The third-party art and UI packs listed in [Credits](#credits-and-third-party-assets), which are not included in this repository
+Choose **WesternShooter > Create standalone smoke demo**, open the generated `Assets/StandaloneGenerated/StandaloneDemo.unity` and press Play. The generator creates original primitive geometry and test tones, wires the existing movement/health/audio systems and registers the scene for building. It refuses to overwrite existing generated resources. The initial build list is intentionally empty: the original MainMenu and Level files are absent.
 
-### Run locally
+The smoke demo uses Built-in rendering and a static camera. WASD/Shift moves; right mouse + left click damages cube targets; H damages the player; 1/2 changes peaceful/wanted audio; 3/4 plays outcome tones; V simulates a voice snapshot request; Escape pauses. This is a small integration alternative, not the original town, AI or full gameplay loop.
 
-```bash
-git clone https://github.com/EmilianoBazanZapata/WesternShooter.git
-```
+No commercial pack is needed for this alternative. Existing third-party recordings and character prefabs are not used. Their raw-file redistribution rights remain unresolved; this repository is not certified as cleared for redistribution.
 
-1. Import the third-party packs into `Assets/Packages/`.
-2. In Unity Hub, choose **Add project from disk** and select the `WesternShooter/` folder.
-3. Open it with Unity **6000.0.72f1** and let it restore packages.
-4. Open the `MainMenu` scene and press **Play**.
+## Build and verification
 
-<!-- TODO: move MainMenu.unity and Level.unity to Assets/Scenes/ and commit them; they currently live inside the ignored Assets/Packages/ folder -->
+After generating the scene, use **File > Build Profiles** and verify `StandaloneDemo` is enabled before a desktop build. Unity package resolution, compilation, Play Mode and builds remain **unverified in this recovery environment**. Commit Unity's generated `Packages/packages-lock.json` after successful resolution and verify a second clean clone. The manifest is a reconstructed baseline, not the original package graph.
 
-## Build
-
-| Index | Scene      | Role                       |
-| ----- | ---------- | -------------------------- |
-| 0     | `MainMenu` | Main menu and controls     |
-| 1     | `Level`    | Gameplay and audio demo    |
-
-Open **File > Build Profiles**, check that both scenes are enabled in that order, choose a desktop target and press **Build**.
+See [recovery report](docs/clean-clone-recovery.md) for checked findings, pending Unity checks, scene dependency inventory, content rights and private restoration instructions. Importing Synty alone cannot recover the author's missing scenes. The original architecture and audio implementations remain intact.
 
 ## Current scope and next steps
 

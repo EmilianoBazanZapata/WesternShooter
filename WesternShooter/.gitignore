@@ -230,7 +230,10 @@ xcuserdata/
 # NuGet
 # =========================================================
 
-packages/
+/packages/
+!/Packages/
+!/Packages/manifest.json
+!/Packages/packages-lock.json
 *.nupkg
 *.snupkg
 .nuget/
@@ -335,3 +338,5 @@ latex/
 # *.mp3
 # *.mp4
 # *.mov
+# Licensed local art packs (distinct from Unity Package Manager).
+/Assets/Packages/
